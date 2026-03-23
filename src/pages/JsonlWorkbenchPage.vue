@@ -2,8 +2,14 @@
 import { computed, ref } from "vue";
 import CommandResult from "../components/CommandResult.vue";
 import JsonPartsTable from "../components/JsonPartsTable.vue";
+import PreviewCanvas from "../components/PreviewCanvas.vue";
 import SectionCard from "../components/SectionCard.vue";
-import type { CompositeManifest } from "../types/app";
+import type {
+  CompositeManifest,
+  PreviewCanvasHandle,
+  PreviewStateSnapshot,
+  ResolvedCompositeManifest,
+} from "../types/app";
 import {
   optimizeJsonl,
   pickFile,
@@ -24,6 +30,17 @@ const manifest = ref<CompositeManifest>({
 const action = ref("JSONL 工作台就绪");
 const result = ref("");
 const previewResolution = ref("");
+const previewStatus = ref("未启动预览");
+const previewBackground = ref("#000000");
+const previewManifest = ref<ResolvedCompositeManifest | null>(null);
+const previewState = ref<PreviewStateSnapshot>({
+  motions: [],
+  expressions: [],
+});
+const selectedMotion = ref("");
+const selectedExpression = ref("");
+const previewImportValue = ref<number | undefined>(undefined);
+const previewCanvas = ref<PreviewCanvasHandle | null>(null);
 
 const motionsText = computed({
   get: () => (manifest.value.summary.motions ?? []).join(", "),
@@ -77,9 +94,41 @@ async function previewJsonl() {
   if (!filePath.value) {
     return;
   }
-  const resolved = await resolvePreviewAssets(filePath.value, manifest.value);
+  const optimized = await optimizeJsonl(manifest.value);
+  manifest.value = optimized;
+  const resolved = await resolvePreviewAssets(filePath.value, optimized);
+  previewManifest.value = resolved;
   previewResolution.value = JSON.stringify(resolved.parts, null, 2);
-  action.value = "已解析预览资源";
+  previewStatus.value = "预览资源已装载";
+  action.value = "已刷新 JSONL 预览";
+}
+
+function onPreviewLoaded(snapshot: PreviewStateSnapshot) {
+  previewState.value = snapshot;
+  previewStatus.value = "预览已就绪";
+  selectedMotion.value = snapshot.motions[0] ?? "";
+  selectedExpression.value = snapshot.expressions[0] ?? "";
+  previewImportValue.value = snapshot.importValue;
+}
+
+function onPreviewError(message: string) {
+  previewStatus.value = message;
+}
+
+function applyMotion() {
+  if (selectedMotion.value) {
+    previewCanvas.value?.applyMotion(selectedMotion.value);
+  }
+}
+
+function applyExpression() {
+  if (selectedExpression.value) {
+    previewCanvas.value?.applyExpression(selectedExpression.value);
+  }
+}
+
+function applyImport() {
+  previewCanvas.value?.applyImport(previewImportValue.value);
 }
 
 </script>
@@ -93,7 +142,7 @@ async function previewJsonl() {
           <button type="button" @click="openJsonl">打开</button>
           <button type="button" @click="optimizeCurrent">规范化</button>
           <button type="button" @click="saveJsonl">保存</button>
-          <button type="button" class="ghost" @click="previewJsonl">解析预览资源</button>
+          <button type="button" class="ghost" @click="previewJsonl">刷新预览</button>
         </div>
 
         <div class="summary-grid">
@@ -134,6 +183,63 @@ async function previewJsonl() {
         :result="previewResolution || '尚未解析。'"
         tone="success"
       />
+    </SectionCard>
+
+    <SectionCard title="JSONL 预览" eyebrow="CANVAS">
+      <div class="form-stack">
+        <div class="inline-picker">
+          <input v-model="previewBackground" placeholder="背景色或渐变" />
+          <button type="button" class="ghost" @click="previewJsonl">载入</button>
+        </div>
+
+        <div class="summary-grid">
+          <label>
+            motion
+            <select v-model="selectedMotion" @change="applyMotion">
+              <option value="">无</option>
+              <option v-for="motion in previewState.motions" :key="motion" :value="motion">
+                {{ motion }}
+              </option>
+            </select>
+          </label>
+          <label>
+            expression
+            <select v-model="selectedExpression" @change="applyExpression">
+              <option value="">无</option>
+              <option
+                v-for="expression in previewState.expressions"
+                :key="expression"
+                :value="expression"
+              >
+                {{ expression }}
+              </option>
+            </select>
+          </label>
+          <label>
+            import
+            <input
+              v-model="previewImportValue"
+              type="number"
+              placeholder="可空"
+            />
+          </label>
+          <div class="preview-actions">
+            <button type="button" @click="applyMotion">应用动作</button>
+            <button type="button" @click="applyExpression">应用表情</button>
+            <button type="button" class="ghost" @click="applyImport">应用 import</button>
+          </div>
+        </div>
+
+        <CommandResult title="预览状态" :result="previewStatus" />
+
+        <PreviewCanvas
+          ref="previewCanvas"
+          :background="previewBackground"
+          :composite-manifest="previewManifest"
+          @loaded="onPreviewLoaded"
+          @error="onPreviewError"
+        />
+      </div>
     </SectionCard>
   </div>
 </template>

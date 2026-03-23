@@ -126,3 +126,10 @@ export interface PreviewStateSnapshot {
   expressions: string[];
   importValue?: number;
 }
+
+export interface PreviewCanvasHandle {
+  resetViewport: () => void;
+  applyMotion: (name: string) => void;
+  applyExpression: (name: string) => void;
+  applyImport: (value?: number) => void;
+}

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type {
+  PreviewCanvasHandle,
   PreviewStateSnapshot,
   ResolvedCompositeManifest,
 } from "../types/app";
@@ -11,7 +12,6 @@ import {
 } from "../lib/runtime/pixi";
 import { loadSingleLive2dModel } from "../lib/runtime/single-live2d";
 import { loadCompositePreview } from "../lib/runtime/composite-live2d";
-import { toAssetUrl } from "../lib/tauri";
 
 const props = defineProps<{
   background: string;
@@ -29,6 +29,9 @@ const zoom = ref(1);
 let renderer: ReturnType<typeof createRenderer> | null = null;
 let detachPanZoom: (() => void) | null = null;
 let disposeRuntime: (() => void) | null = null;
+let motionController: ((name: string) => void) | null = null;
+let expressionController: ((name: string) => void) | null = null;
+let importController: ((value?: number) => void) | null = null;
 
 const loadKey = computed(() =>
   JSON.stringify({
@@ -83,10 +86,13 @@ async function bootstrap(): Promise<void> {
   try {
     if (props.singleModelPath) {
       const runtime = await loadSingleLive2dModel(
-        toAssetUrl(props.singleModelPath),
+        props.singleModelPath,
         renderer.root,
       );
       disposeRuntime = runtime.destroy;
+      motionController = runtime.applyMotion;
+      expressionController = runtime.applyExpression;
+      importController = runtime.applyImport;
       emit("loaded", {
         motions: runtime.motions,
         expressions: runtime.expressions,
@@ -100,6 +106,9 @@ async function bootstrap(): Promise<void> {
         renderer.root,
       );
       disposeRuntime = runtime.destroy;
+      motionController = runtime.applyMotion;
+      expressionController = runtime.applyExpression;
+      importController = runtime.applyImport;
       emit("loaded", {
         motions: runtime.result.selectors.motions,
         expressions: runtime.result.selectors.expressions,
@@ -114,6 +123,9 @@ async function bootstrap(): Promise<void> {
 function teardown(): void {
   disposeRuntime?.();
   disposeRuntime = null;
+  motionController = null;
+  expressionController = null;
+  importController = null;
   detachPanZoom?.();
   detachPanZoom = null;
   renderer?.destroy();
@@ -131,7 +143,28 @@ function resetViewport(): void {
   }
 }
 
-defineExpose({ resetViewport });
+function applyMotion(name: string): void {
+  if (name) {
+    motionController?.(name);
+  }
+}
+
+function applyExpression(name: string): void {
+  if (name) {
+    expressionController?.(name);
+  }
+}
+
+function applyImport(value?: number): void {
+  importController?.(value);
+}
+
+defineExpose<PreviewCanvasHandle>({
+  resetViewport,
+  applyMotion,
+  applyExpression,
+  applyImport,
+});
 </script>
 
 <template>
