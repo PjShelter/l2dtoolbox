@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Live2D Toolbox</title>
+    <script>
+      function loadScript(url) {
+        return new Promise((resolve, reject) => {
+          const existing = document.querySelector(`script[data-live2d-src="${url}"]`);
+          if (existing?.dataset.loaded === "true") {
+            resolve(`Loaded: ${url}`);
+            return;
+          }
+
+          const script = existing ?? document.createElement("script");
+          script.src = url;
+          script.dataset.live2dSrc = url;
+          script.onload = () => {
+            script.dataset.loaded = "true";
+            resolve(`Loaded: ${url}`);
+          };
+          script.onerror = () => reject(`Failed to load: ${url}`);
+
+          if (!existing) {
+            document.head.appendChild(script);
+          }
+        });
+      }
+
+      async function loadLive2D() {
+        try {
+          await loadScript("lib/live2d.min.js");
+          await loadScript("lib/live2dcubismcore.min.js");
+          console.log("Both Live2D scripts loaded successfully.");
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      loadLive2D();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+  </html>
