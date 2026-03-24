@@ -135,7 +135,7 @@ function updateGeneratedParts(parts: CompositeManifest["parts"]) {
 </script>
 
 <template>
-  <div class="page-grid page-grid--wide">
+  <div class="page-grid page-grid--single">
     <SectionCard title="生成 JSONL" eyebrow="GENERATOR">
       <div class="form-stack">
         <div class="inline-picker">
