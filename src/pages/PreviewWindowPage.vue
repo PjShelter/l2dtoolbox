@@ -9,6 +9,7 @@ import {
 } from "../lib/preview-window";
 import type {
   PreviewCanvasHandle,
+  PreviewLayerState,
   PreviewSession,
   PreviewStateSnapshot,
 } from "../types/app";
@@ -18,10 +19,12 @@ const status = ref("等待预览数据");
 const previewState = ref<PreviewStateSnapshot>({
   motions: [],
   expressions: [],
+  layers: [],
 });
 const selectedMotion = ref("");
 const selectedExpression = ref("");
 const importValue = ref<number | undefined>(undefined);
+const layerStates = ref<PreviewLayerState[]>([]);
 const previewCanvas = ref<PreviewCanvasHandle | null>(null);
 let detachSessionListener: UnlistenFn | null = null;
 
@@ -44,10 +47,12 @@ async function applySession(next: PreviewSession | null): Promise<void> {
   previewState.value = {
     motions: [],
     expressions: [],
+    layers: [],
   };
   selectedMotion.value = "";
   selectedExpression.value = "";
   importValue.value = undefined;
+  layerStates.value = [];
   status.value = next ? `准备加载 ${next.sourceLabel}` : "等待预览数据";
 }
 
@@ -56,6 +61,7 @@ function onPreviewLoaded(snapshot: PreviewStateSnapshot) {
   selectedMotion.value = snapshot.motions[0] ?? "";
   selectedExpression.value = snapshot.expressions[0] ?? "";
   importValue.value = snapshot.importValue;
+  layerStates.value = snapshot.layers.map((layer) => ({ ...layer }));
   status.value = "预览已就绪";
 }
 
@@ -77,6 +83,13 @@ function applyExpression() {
 
 function applyImport() {
   previewCanvas.value?.applyImport(importValue.value);
+}
+
+function toggleLayerVisibility(layerKey: string, visible: boolean) {
+  layerStates.value = layerStates.value.map((layer) =>
+    layer.key === layerKey ? { ...layer, visible } : layer,
+  );
+  previewCanvas.value?.setLayerVisibility(layerKey, visible);
 }
 
 onMounted(async () => {
@@ -156,6 +169,23 @@ onBeforeUnmount(() => {
             {{ `已解析 ${session.compositeManifest.parts.length} 个图层` }}
           </span>
         </div>
+      </div>
+
+      <div v-if="layerStates.length > 1" class="preview-window__layers">
+        <span class="preview-window__layers-title">图层显示</span>
+        <label
+          v-for="layer in layerStates"
+          :key="layer.key"
+          class="preview-window__layer-toggle"
+        >
+          <input
+            :checked="layer.visible"
+            type="checkbox"
+            @change="toggleLayerVisibility(layer.key, ($event.target as HTMLInputElement).checked)"
+          />
+          <span>{{ layer.label }}</span>
+          <small>{{ layer.type }}</small>
+        </label>
       </div>
     </div>
 

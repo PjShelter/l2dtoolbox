@@ -125,6 +125,14 @@ export interface PreviewStateSnapshot {
   motions: string[];
   expressions: string[];
   importValue?: number;
+  layers: PreviewLayerState[];
+}
+
+export interface PreviewLayerState {
+  key: string;
+  label: string;
+  visible: boolean;
+  type: CompositePartType | "single";
 }
 
 export interface PreviewCanvasHandle {
@@ -132,6 +140,7 @@ export interface PreviewCanvasHandle {
   applyMotion: (name: string) => void;
   applyExpression: (name: string) => void;
   applyImport: (value?: number) => void;
+  setLayerVisibility: (key: string, visible: boolean) => void;
 }
 
 export interface PreviewSession {

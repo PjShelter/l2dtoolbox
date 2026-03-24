@@ -32,6 +32,7 @@ let disposeRuntime: (() => void) | null = null;
 let motionController: ((name: string) => void) | null = null;
 let expressionController: ((name: string) => void) | null = null;
 let importController: ((value?: number) => void) | null = null;
+let layerVisibilityController: ((key: string, visible: boolean) => void) | null = null;
 
 const loadKey = computed(() =>
   JSON.stringify({
@@ -93,9 +94,11 @@ async function bootstrap(): Promise<void> {
       motionController = runtime.applyMotion;
       expressionController = runtime.applyExpression;
       importController = runtime.applyImport;
+      layerVisibilityController = runtime.setLayerVisibility;
       emit("loaded", {
         motions: runtime.motions,
         expressions: runtime.expressions,
+        layers: runtime.layers,
       });
       return;
     }
@@ -109,10 +112,12 @@ async function bootstrap(): Promise<void> {
       motionController = runtime.applyMotion;
       expressionController = runtime.applyExpression;
       importController = runtime.applyImport;
+      layerVisibilityController = runtime.setLayerVisibility;
       emit("loaded", {
         motions: runtime.result.selectors.motions,
         expressions: runtime.result.selectors.expressions,
         importValue: props.compositeManifest.summary.import,
+        layers: runtime.layers,
       });
     }
   } catch (error) {
@@ -126,6 +131,7 @@ function teardown(): void {
   motionController = null;
   expressionController = null;
   importController = null;
+  layerVisibilityController = null;
   detachPanZoom?.();
   detachPanZoom = null;
   renderer?.destroy();
@@ -159,11 +165,16 @@ function applyImport(value?: number): void {
   importController?.(value);
 }
 
+function setLayerVisibility(key: string, visible: boolean): void {
+  layerVisibilityController?.(key, visible);
+}
+
 defineExpose<PreviewCanvasHandle>({
   resetViewport,
   applyMotion,
   applyExpression,
   applyImport,
+  setLayerVisibility,
 });
 </script>
 
