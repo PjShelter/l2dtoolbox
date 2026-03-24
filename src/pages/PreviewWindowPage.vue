@@ -1,0 +1,178 @@
+<script setup lang="ts">
+import { listen } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import PreviewCanvas from "../components/PreviewCanvas.vue";
+import {
+  loadPreviewSession,
+  PREVIEW_SESSION_EVENT,
+} from "../lib/preview-window";
+import type {
+  PreviewCanvasHandle,
+  PreviewSession,
+  PreviewStateSnapshot,
+} from "../types/app";
+
+const session = ref<PreviewSession | null>(null);
+const status = ref("等待预览数据");
+const previewState = ref<PreviewStateSnapshot>({
+  motions: [],
+  expressions: [],
+});
+const selectedMotion = ref("");
+const selectedExpression = ref("");
+const importValue = ref<number | undefined>(undefined);
+const previewCanvas = ref<PreviewCanvasHandle | null>(null);
+let detachSessionListener: UnlistenFn | null = null;
+
+const modeLabel = computed(() => {
+  if (!session.value) {
+    return "未载入";
+  }
+  return session.value.mode === "single" ? "单模型" : "JSONL";
+});
+
+function updateBackground(value: string): void {
+  if (!session.value) {
+    return;
+  }
+  session.value.background = value;
+}
+
+async function applySession(next: PreviewSession | null): Promise<void> {
+  session.value = next;
+  previewState.value = {
+    motions: [],
+    expressions: [],
+  };
+  selectedMotion.value = "";
+  selectedExpression.value = "";
+  importValue.value = undefined;
+  status.value = next ? `准备加载 ${next.sourceLabel}` : "等待预览数据";
+}
+
+function onPreviewLoaded(snapshot: PreviewStateSnapshot) {
+  previewState.value = snapshot;
+  selectedMotion.value = snapshot.motions[0] ?? "";
+  selectedExpression.value = snapshot.expressions[0] ?? "";
+  importValue.value = snapshot.importValue;
+  status.value = "预览已就绪";
+}
+
+function onPreviewError(message: string) {
+  status.value = message;
+}
+
+function applyMotion() {
+  if (selectedMotion.value) {
+    previewCanvas.value?.applyMotion(selectedMotion.value);
+  }
+}
+
+function applyExpression() {
+  if (selectedExpression.value) {
+    previewCanvas.value?.applyExpression(selectedExpression.value);
+  }
+}
+
+function applyImport() {
+  previewCanvas.value?.applyImport(importValue.value);
+}
+
+onMounted(async () => {
+  await applySession(loadPreviewSession());
+  detachSessionListener = await listen<PreviewSession>(PREVIEW_SESSION_EVENT, (event) => {
+    void applySession(event.payload);
+  });
+});
+
+onBeforeUnmount(() => {
+  detachSessionListener?.();
+  detachSessionListener = null;
+});
+</script>
+
+<template>
+  <div class="preview-window">
+    <div class="preview-window__panel">
+      <div class="preview-window__toolbar">
+        <div class="preview-window__meta">
+          <strong>{{ modeLabel }}</strong>
+          <span>{{ session?.sourceLabel ?? "尚未接收到预览任务" }}</span>
+        </div>
+      </div>
+
+      <div class="preview-window__controls">
+        <label class="preview-window__background">
+          背景
+          <input
+            :disabled="!session"
+            :value="session?.background ?? ''"
+            @input="updateBackground(($event.target as HTMLInputElement).value)"
+          />
+        </label>
+
+        <label>
+          motion
+          <select v-model="selectedMotion" :disabled="!previewState.motions.length" @change="applyMotion">
+            <option value="">无</option>
+            <option v-for="motion in previewState.motions" :key="motion" :value="motion">
+              {{ motion }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          expression
+          <select
+            v-model="selectedExpression"
+            :disabled="!previewState.expressions.length"
+            @change="applyExpression"
+          >
+            <option value="">无</option>
+            <option
+              v-for="expression in previewState.expressions"
+              :key="expression"
+              :value="expression"
+            >
+              {{ expression }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          import
+          <input
+            v-model="importValue"
+            type="number"
+            placeholder="可空"
+            @keydown.enter.prevent="applyImport"
+          />
+        </label>
+
+        <div class="preview-window__inline-status">
+          <span>{{ status }}</span>
+          <span v-if="session?.compositeManifest">
+            {{ `已解析 ${session.compositeManifest.parts.length} 个图层` }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-window__canvas">
+      <PreviewCanvas
+        v-if="session"
+        ref="previewCanvas"
+        :background="session.background"
+        :single-model-path="session.singleModelPath"
+        :composite-manifest="session.compositeManifest"
+        @loaded="onPreviewLoaded"
+        @error="onPreviewError"
+      />
+
+      <div v-else class="preview-window__empty">
+        点击主窗口中的预览按钮后，这里会显示模型。
+      </div>
+    </div>
+  </div>
+</template>

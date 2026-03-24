@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import CommandResult from "../components/CommandResult.vue";
 import JsonPartsTable from "../components/JsonPartsTable.vue";
-import PreviewCanvas from "../components/PreviewCanvas.vue";
 import SectionCard from "../components/SectionCard.vue";
-import type {
-  CompositeManifest,
-  PreviewCanvasHandle,
-  PreviewStateSnapshot,
-  ResolvedCompositeManifest,
-} from "../types/app";
+import type { CompositeManifest } from "../types/app";
+import { openPreviewWindow } from "../lib/preview-window";
 import {
   optimizeJsonl,
   pickFile,
@@ -28,19 +22,8 @@ const manifest = ref<CompositeManifest>({
   diagnostics: [],
 });
 const action = ref("JSONL 工作台就绪");
-const result = ref("");
-const previewResolution = ref("");
 const previewStatus = ref("未启动预览");
 const previewBackground = ref("#000000");
-const previewManifest = ref<ResolvedCompositeManifest | null>(null);
-const previewState = ref<PreviewStateSnapshot>({
-  motions: [],
-  expressions: [],
-});
-const selectedMotion = ref("");
-const selectedExpression = ref("");
-const previewImportValue = ref<number | undefined>(undefined);
-const previewCanvas = ref<PreviewCanvasHandle | null>(null);
 
 const motionsText = computed({
   get: () => (manifest.value.summary.motions ?? []).join(", "),
@@ -56,6 +39,20 @@ const expressionsText = computed({
   },
 });
 
+const diagnosticSummary = computed(() => {
+  const diagnostics = manifest.value.diagnostics ?? [];
+  if (!diagnostics.length) {
+    return "无解析告警";
+  }
+  const errors = diagnostics.filter((item) => item.severity === "error").length;
+  const warnings = diagnostics.length - errors;
+  return `解析告警 ${diagnostics.length} 项，错误 ${errors}，警告 ${warnings}`;
+});
+
+const pageStatus = computed(
+  () => `${action.value}，当前 ${manifest.value.parts.length} 行，${diagnosticSummary.value}`,
+);
+
 async function openJsonl() {
   const selected = await pickFile([{ name: "JSONL", extensions: ["jsonl"] }], filePath.value);
   if (!selected) {
@@ -64,14 +61,12 @@ async function openJsonl() {
   filePath.value = selected;
   manifest.value = await readJsonl(selected);
   action.value = "已读取 JSONL";
-  result.value = JSON.stringify(manifest.value.diagnostics, null, 2);
 }
 
 async function optimizeCurrent() {
   const optimized = await optimizeJsonl(manifest.value);
   manifest.value = optimized;
   action.value = "已规范化 JSONL";
-  result.value = optimized.text;
 }
 
 async function saveJsonl() {
@@ -85,56 +80,35 @@ async function saveJsonl() {
   filePath.value = target;
   const optimized = await optimizeJsonl(manifest.value);
   manifest.value = optimized;
-  const report = await writeJsonl(target, optimized);
+  await writeJsonl(target, optimized);
   action.value = "已写入 JSONL";
-  result.value = JSON.stringify(report, null, 2);
 }
 
 async function previewJsonl() {
   if (!filePath.value) {
     return;
   }
-  const optimized = await optimizeJsonl(manifest.value);
-  manifest.value = optimized;
-  const resolved = await resolvePreviewAssets(filePath.value, optimized);
-  previewManifest.value = resolved;
-  previewResolution.value = JSON.stringify(resolved.parts, null, 2);
-  previewStatus.value = "预览资源已装载";
-  action.value = "已刷新 JSONL 预览";
-}
-
-function onPreviewLoaded(snapshot: PreviewStateSnapshot) {
-  previewState.value = snapshot;
-  previewStatus.value = "预览已就绪";
-  selectedMotion.value = snapshot.motions[0] ?? "";
-  selectedExpression.value = snapshot.expressions[0] ?? "";
-  previewImportValue.value = snapshot.importValue;
-}
-
-function onPreviewError(message: string) {
-  previewStatus.value = message;
-}
-
-function applyMotion() {
-  if (selectedMotion.value) {
-    previewCanvas.value?.applyMotion(selectedMotion.value);
+  try {
+    const optimized = await optimizeJsonl(manifest.value);
+    manifest.value = optimized;
+    const resolved = await resolvePreviewAssets(filePath.value, optimized);
+    await openPreviewWindow({
+      mode: "composite",
+      background: previewBackground.value,
+      sourceLabel: filePath.value,
+      compositeManifest: resolved,
+    });
+    previewStatus.value = "已发送到预览子窗口";
+    action.value = "已刷新 JSONL 预览";
+  } catch (error) {
+    previewStatus.value = error instanceof Error ? error.message : String(error);
   }
-}
-
-function applyExpression() {
-  if (selectedExpression.value) {
-    previewCanvas.value?.applyExpression(selectedExpression.value);
-  }
-}
-
-function applyImport() {
-  previewCanvas.value?.applyImport(previewImportValue.value);
 }
 
 </script>
 
 <template>
-  <div class="page-grid page-grid--wide">
+  <div class="page-grid page-grid--single">
     <SectionCard title="JSONL 工作台" eyebrow="COMPOSITE">
       <div class="form-stack">
         <div class="inline-picker">
@@ -142,7 +116,13 @@ function applyImport() {
           <button type="button" @click="openJsonl">打开</button>
           <button type="button" @click="optimizeCurrent">规范化</button>
           <button type="button" @click="saveJsonl">保存</button>
-          <button type="button" class="ghost" @click="previewJsonl">刷新预览</button>
+          <input v-model="previewBackground" class="jsonl-preview-background" placeholder="预览背景" />
+          <button type="button" class="ghost" @click="previewJsonl">预览</button>
+        </div>
+
+        <div class="status-strip">
+          <span>{{ pageStatus }}</span>
+          <span>{{ previewStatus }}</span>
         </div>
 
         <div class="summary-grid">
@@ -172,73 +152,21 @@ function applyImport() {
           </label>
         </div>
 
+        <details v-if="manifest.diagnostics.length" class="diagnostic-box">
+          <summary>{{ diagnosticSummary }}</summary>
+          <ul class="diagnostic-box__list">
+            <li
+              v-for="(diagnostic, index) in manifest.diagnostics"
+              :key="`${diagnostic.code}-${diagnostic.lineNumber ?? index}`"
+            >
+              <strong>{{ diagnostic.severity === 'error' ? '错误' : '警告' }}</strong>
+              {{ diagnostic.lineNumber ? `第 ${diagnostic.lineNumber} 行` : '解析阶段' }}
+              {{ diagnostic.message }}
+            </li>
+          </ul>
+        </details>
+
         <JsonPartsTable :parts="manifest.parts" @update="manifest.parts = $event" />
-      </div>
-    </SectionCard>
-
-    <SectionCard title="诊断与解析结果" eyebrow="REPORT">
-      <CommandResult :title="action" :result="result || '诊断会显示在这里。'" />
-      <CommandResult
-        title="预览资源映射"
-        :result="previewResolution || '尚未解析。'"
-        tone="success"
-      />
-    </SectionCard>
-
-    <SectionCard title="JSONL 预览" eyebrow="CANVAS">
-      <div class="form-stack">
-        <div class="inline-picker">
-          <input v-model="previewBackground" placeholder="背景色或渐变" />
-          <button type="button" class="ghost" @click="previewJsonl">载入</button>
-        </div>
-
-        <div class="summary-grid">
-          <label>
-            motion
-            <select v-model="selectedMotion" @change="applyMotion">
-              <option value="">无</option>
-              <option v-for="motion in previewState.motions" :key="motion" :value="motion">
-                {{ motion }}
-              </option>
-            </select>
-          </label>
-          <label>
-            expression
-            <select v-model="selectedExpression" @change="applyExpression">
-              <option value="">无</option>
-              <option
-                v-for="expression in previewState.expressions"
-                :key="expression"
-                :value="expression"
-              >
-                {{ expression }}
-              </option>
-            </select>
-          </label>
-          <label>
-            import
-            <input
-              v-model="previewImportValue"
-              type="number"
-              placeholder="可空"
-            />
-          </label>
-          <div class="preview-actions">
-            <button type="button" @click="applyMotion">应用动作</button>
-            <button type="button" @click="applyExpression">应用表情</button>
-            <button type="button" class="ghost" @click="applyImport">应用 import</button>
-          </div>
-        </div>
-
-        <CommandResult title="预览状态" :result="previewStatus" />
-
-        <PreviewCanvas
-          ref="previewCanvas"
-          :background="previewBackground"
-          :composite-manifest="previewManifest"
-          @loaded="onPreviewLoaded"
-          @error="onPreviewError"
-        />
       </div>
     </SectionCard>
   </div>

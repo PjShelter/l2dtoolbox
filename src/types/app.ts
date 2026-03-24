@@ -133,3 +133,11 @@ export interface PreviewCanvasHandle {
   applyExpression: (name: string) => void;
   applyImport: (value?: number) => void;
 }
+
+export interface PreviewSession {
+  mode: "single" | "composite";
+  background: string;
+  sourceLabel: string;
+  singleModelPath?: string | null;
+  compositeManifest?: ResolvedCompositeManifest | null;
+}
