@@ -116,7 +116,10 @@ async function previewJsonl() {
           <button type="button" @click="openJsonl">打开</button>
           <button type="button" @click="optimizeCurrent">规范化</button>
           <button type="button" @click="saveJsonl">保存</button>
-          <input v-model="previewBackground" class="jsonl-preview-background" placeholder="预览背景" />
+          <label class="color-field">
+            <span>背景</span>
+            <input v-model="previewBackground" class="color-picker" type="color" />
+          </label>
           <button type="button" class="ghost" @click="previewJsonl">预览</button>
         </div>
 

@@ -92,7 +92,7 @@ async function runRemove() {
 </script>
 
 <template>
-  <div class="page-grid">
+  <div class="page-grid page-grid--single">
     <SectionCard title="模型工具" eyebrow="FILE OPS">
       <div class="form-stack">
         <label>

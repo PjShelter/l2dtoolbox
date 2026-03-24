@@ -32,7 +32,7 @@ const modeLabel = computed(() => {
   if (!session.value) {
     return "未载入";
   }
-  return session.value.mode === "single" ? "单模型" : "JSONL";
+  return session.value.mode === "single" ? "模型 JSON" : "JSONL";
 });
 
 function updateBackground(value: string): void {
@@ -53,7 +53,7 @@ async function applySession(next: PreviewSession | null): Promise<void> {
   selectedExpression.value = "";
   importValue.value = undefined;
   layerStates.value = [];
-  status.value = next ? `准备加载 ${next.sourceLabel}` : "等待预览数据";
+  status.value = next ? "加载中" : "等待预览数据";
 }
 
 function onPreviewLoaded(snapshot: PreviewStateSnapshot) {
@@ -110,17 +110,19 @@ onBeforeUnmount(() => {
     <div class="preview-window__panel">
       <div class="preview-window__toolbar">
         <div class="preview-window__meta">
-          <strong>{{ modeLabel }}</strong>
+          <strong>{{ `已识别 ${modeLabel}` }}</strong>
           <span>{{ session?.sourceLabel ?? "尚未接收到预览任务" }}</span>
         </div>
       </div>
 
       <div class="preview-window__controls">
-        <label class="preview-window__background">
-          背景
+        <label class="preview-window__background color-field">
+          <span>背景</span>
           <input
             :disabled="!session"
-            :value="session?.background ?? ''"
+            :value="session?.background ?? '#000000'"
+            class="color-picker"
+            type="color"
             @input="updateBackground(($event.target as HTMLInputElement).value)"
           />
         </label>

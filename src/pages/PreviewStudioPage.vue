@@ -8,46 +8,41 @@ import { pickFile, readJsonl, resolvePreviewAssets } from "../lib/tauri";
 const mode = ref<"single" | "composite">("single");
 const singleModelPath = ref<string | null>(null);
 const compositeManifest = ref<ResolvedCompositeManifest | null>(null);
-const background = ref("radial-gradient(circle at top, #2e645f, #091514 72%)");
+const background = ref("#000000");
 const status = ref("等待加载预览");
 
-async function openSingleModel() {
-  const selected = await pickFile([{ name: "model.json", extensions: ["json"] }]);
+async function openPreviewFile() {
+  const selected = await pickFile([
+    { name: "预览文件", extensions: ["json", "jsonl"] },
+  ]);
   if (!selected) {
     return;
   }
-  try {
-    mode.value = "single";
-    singleModelPath.value = selected;
-    compositeManifest.value = null;
-    await openPreviewWindow({
-      mode: "single",
-      background: background.value,
-      sourceLabel: selected,
-      singleModelPath: selected,
-    });
-    status.value = `已在子窗口打开 ${selected}`;
-  } catch (error) {
-    status.value = error instanceof Error ? error.message : String(error);
-  }
-}
 
-async function openComposite() {
-  const selected = await pickFile([{ name: "JSONL", extensions: ["jsonl"] }]);
-  if (!selected) {
-    return;
-  }
   try {
-    const manifest = await readJsonl(selected);
-    compositeManifest.value = await resolvePreviewAssets(selected, manifest);
-    mode.value = "composite";
-    singleModelPath.value = null;
-    await openPreviewWindow({
-      mode: "composite",
-      background: background.value,
-      sourceLabel: selected,
-      compositeManifest: compositeManifest.value,
-    });
+    if (selected.toLowerCase().endsWith(".jsonl")) {
+      const manifest = await readJsonl(selected);
+      compositeManifest.value = await resolvePreviewAssets(selected, manifest);
+      mode.value = "composite";
+      singleModelPath.value = null;
+      await openPreviewWindow({
+        mode: "composite",
+        background: background.value,
+        sourceLabel: selected,
+        compositeManifest: compositeManifest.value,
+      });
+    } else {
+      mode.value = "single";
+      singleModelPath.value = selected;
+      compositeManifest.value = null;
+      await openPreviewWindow({
+        mode: "single",
+        background: background.value,
+        sourceLabel: selected,
+        singleModelPath: selected,
+      });
+    }
+
     status.value = `已在子窗口打开 ${selected}`;
   } catch (error) {
     status.value = error instanceof Error ? error.message : String(error);
@@ -87,24 +82,18 @@ async function reopenCurrent() {
 </script>
 
 <template>
-  <div class="page-grid">
+  <div class="page-grid page-grid--single">
     <SectionCard title="预览控制台" eyebrow="RUNTIME">
       <div class="form-stack">
         <div class="inline-picker">
-          <button type="button" @click="openSingleModel">打开单模型</button>
-          <button type="button" @click="openComposite">打开 JSONL</button>
+          <button type="button" @click="openPreviewFile">打开预览文件</button>
           <button type="button" class="ghost" @click="reopenCurrent">重新发送到预览窗口</button>
         </div>
 
-        <label>
+        <label class="color-field">
           背景
-          <input v-model="background" />
+          <input v-model="background" class="color-picker" type="color" />
         </label>
-
-        <p class="helper-text">
-          预览会在独立子窗口中打开。当前模式：
-          {{ mode === "single" ? "单模型" : "JSONL" }}
-        </p>
       </div>
     </SectionCard>
 
@@ -116,7 +105,7 @@ async function reopenCurrent() {
         </div>
 
         <p class="helper-text">
-          动作、表情、import 和视口控制都在弹出的预览窗口中操作。
+          动作、表情、import、图层显示和视口控制都在弹出的预览窗口中操作。
         </p>
       </div>
     </SectionCard>

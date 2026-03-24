@@ -183,8 +183,25 @@ textarea::placeholder {
   flex: 1;
 }
 
-.jsonl-preview-background {
-  max-width: 220px;
+.color-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: auto;
+}
+
+.color-field span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.color-picker {
+  width: 56px;
+  min-width: 56px;
+  height: 38px;
+  padding: 0.2rem;
+  border-radius: 10px;
+  cursor: pointer;
 }
 
 .summary-grid {
@@ -417,7 +434,7 @@ textarea::placeholder {
 }
 
 .preview-window__background {
-  width: min(360px, 100%);
+  width: auto;
 }
 
 .preview-window__controls {
