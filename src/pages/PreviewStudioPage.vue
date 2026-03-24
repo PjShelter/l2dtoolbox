@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import BackgroundSwatchField from "../components/BackgroundSwatchField.vue";
 import SectionCard from "../components/SectionCard.vue";
 import type { ResolvedCompositeManifest } from "../types/app";
 import { openPreviewWindow } from "../lib/preview-window";
 import { pickFile, readJsonl, resolvePreviewAssets } from "../lib/tauri";
+import { DEFAULT_PREVIEW_BACKGROUND } from "../lib/preview-backgrounds";
 
-const mode = ref<"single" | "composite">("single");
 const singleModelPath = ref<string | null>(null);
 const compositeManifest = ref<ResolvedCompositeManifest | null>(null);
-const background = ref("#000000");
+const background = ref(DEFAULT_PREVIEW_BACKGROUND);
 const status = ref("等待加载预览");
 
 async function openPreviewFile() {
@@ -23,7 +24,6 @@ async function openPreviewFile() {
     if (selected.toLowerCase().endsWith(".jsonl")) {
       const manifest = await readJsonl(selected);
       compositeManifest.value = await resolvePreviewAssets(selected, manifest);
-      mode.value = "composite";
       singleModelPath.value = null;
       await openPreviewWindow({
         mode: "composite",
@@ -32,7 +32,6 @@ async function openPreviewFile() {
         compositeManifest: compositeManifest.value,
       });
     } else {
-      mode.value = "single";
       singleModelPath.value = selected;
       compositeManifest.value = null;
       await openPreviewWindow({
@@ -50,7 +49,7 @@ async function openPreviewFile() {
 }
 
 async function reopenCurrent() {
-  if (mode.value === "single" && singleModelPath.value) {
+  if (singleModelPath.value) {
     try {
       await openPreviewWindow({
         mode: "single",
@@ -65,7 +64,7 @@ async function reopenCurrent() {
     return;
   }
 
-  if (mode.value === "composite" && compositeManifest.value?.source) {
+  if (compositeManifest.value?.source) {
     try {
       await openPreviewWindow({
         mode: "composite",
@@ -90,23 +89,12 @@ async function reopenCurrent() {
           <button type="button" class="ghost" @click="reopenCurrent">重新发送到预览窗口</button>
         </div>
 
-        <label class="color-field">
-          背景
-          <input v-model="background" class="color-picker" type="color" />
-        </label>
-      </div>
-    </SectionCard>
+        <BackgroundSwatchField v-model="background" />
 
-    <SectionCard title="状态" eyebrow="SESSION">
-      <div class="form-stack">
         <div class="status-strip">
           <span>{{ status }}</span>
-          <span>{{ mode === "single" ? (singleModelPath ?? "未选择模型") : (compositeManifest?.source ?? "未选择 JSONL") }}</span>
+          <span>{{ singleModelPath ?? compositeManifest?.source ?? "未选择文件" }}</span>
         </div>
-
-        <p class="helper-text">
-          动作、表情、import、图层显示和视口控制都在弹出的预览窗口中操作。
-        </p>
       </div>
     </SectionCard>
   </div>

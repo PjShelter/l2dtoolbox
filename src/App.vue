@@ -1,18 +1,33 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
 import AppSidebar from "./components/AppSidebar.vue";
-import JsonlWorkbenchPage from "./pages/JsonlWorkbenchPage.vue";
 import ModelToolsPage from "./pages/ModelToolsPage.vue";
+import PartEditorPage from "./pages/PartEditorPage.vue";
+import JsonlGeneratorPage from "./pages/JsonlGeneratorPage.vue";
+import JsonlEditorPage from "./pages/JsonlEditorPage.vue";
+import WmdlConverterPage from "./pages/WmdlConverterPage.vue";
+import PresetBuilderPage from "./pages/PresetBuilderPage.vue";
 import PreviewStudioPage from "./pages/PreviewStudioPage.vue";
 import { loadSettings, saveSettings } from "./lib/tauri";
 import type { AppModule, AppSettings } from "./types/app";
 
 const activeModule = ref<AppModule>("model-tools");
 const settings = ref<AppSettings | null>(null);
+const validModules = new Set<AppModule>([
+  "model-tools",
+  "part-editor",
+  "jsonl-generator",
+  "jsonl-editor",
+  "wmdl-converter",
+  "preset-builder",
+  "preview",
+]);
 
 onMounted(async () => {
   settings.value = await loadSettings();
-  activeModule.value = settings.value.activeModule;
+  activeModule.value = validModules.has(settings.value.activeModule)
+    ? settings.value.activeModule
+    : "model-tools";
 });
 
 watch(activeModule, async (value) => {
@@ -30,7 +45,11 @@ watch(activeModule, async (value) => {
 
     <main class="workspace">
       <ModelToolsPage v-if="activeModule === 'model-tools'" />
-      <JsonlWorkbenchPage v-else-if="activeModule === 'jsonl-workbench'" />
+      <PartEditorPage v-else-if="activeModule === 'part-editor'" />
+      <JsonlGeneratorPage v-else-if="activeModule === 'jsonl-generator'" />
+      <JsonlEditorPage v-else-if="activeModule === 'jsonl-editor'" />
+      <WmdlConverterPage v-else-if="activeModule === 'wmdl-converter'" />
+      <PresetBuilderPage v-else-if="activeModule === 'preset-builder'" />
       <PreviewStudioPage v-else />
     </main>
   </div>

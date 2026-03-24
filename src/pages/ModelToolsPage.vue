@@ -142,11 +142,8 @@ async function runRemove() {
             <button type="button" class="ghost" @click="runRemove">删除参数</button>
           </div>
         </label>
+        <CommandResult :title="activity" :result="commandResult || '尚未执行命令。'" />
       </div>
-    </SectionCard>
-
-    <SectionCard title="执行结果" eyebrow="REPORT">
-      <CommandResult :title="activity" :result="commandResult || '尚未执行命令。'" />
     </SectionCard>
   </div>
 </template>

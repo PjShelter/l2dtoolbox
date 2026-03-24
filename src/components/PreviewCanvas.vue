@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type {
+  EditableModelState,
   PreviewCanvasHandle,
   PreviewStateSnapshot,
   ResolvedCompositeManifest,
@@ -16,6 +17,7 @@ import { loadCompositePreview } from "../lib/runtime/composite-live2d";
 const props = defineProps<{
   background: string;
   singleModelPath?: string | null;
+  singleModelState?: EditableModelState | null;
   compositeManifest?: ResolvedCompositeManifest | null;
 }>();
 
@@ -37,6 +39,7 @@ let layerVisibilityController: ((key: string, visible: boolean) => void) | null 
 const loadKey = computed(() =>
   JSON.stringify({
     singleModelPath: props.singleModelPath,
+    singleModelState: props.singleModelState,
     compositeSource: props.compositeManifest?.source,
     compositeParts: props.compositeManifest?.parts.map((part) => part.resolvedPath),
   }),
@@ -89,6 +92,7 @@ async function bootstrap(): Promise<void> {
       const runtime = await loadSingleLive2dModel(
         props.singleModelPath,
         renderer.root,
+        props.singleModelState,
       );
       disposeRuntime = runtime.destroy;
       motionController = runtime.applyMotion;

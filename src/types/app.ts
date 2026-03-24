@@ -1,4 +1,11 @@
-export type AppModule = "model-tools" | "jsonl-workbench" | "preview";
+export type AppModule =
+  | "model-tools"
+  | "part-editor"
+  | "jsonl-generator"
+  | "jsonl-editor"
+  | "wmdl-converter"
+  | "preset-builder"
+  | "preview";
 
 export type CompositeDiagnosticSeverity = "warning" | "error";
 export type CompositePartType = "live2d" | "image" | "gif" | "video";
@@ -113,6 +120,108 @@ export interface FileWriteReport {
   writtenBytes: number;
 }
 
+export interface ModelPartOpacity {
+  id: string;
+  value: number;
+}
+
+export interface ModelInitParam {
+  id: string;
+  value: number;
+  defaultValue?: number;
+  minValue?: number;
+  maxValue?: number;
+}
+
+export interface ModelJsonDocument {
+  filePath: string;
+  modelVersion: string;
+  initOpacities: ModelPartOpacity[];
+  initParams: ModelInitParam[];
+  motions: string[];
+  expressions: string[];
+  data: Record<string, unknown>;
+}
+
+export interface EditableModelState {
+  filePath: string;
+  modelVersion: string;
+  initOpacities: ModelPartOpacity[];
+  initParams: ModelInitParam[];
+}
+
+export interface JsonlGenerationPayload {
+  rootDir: string;
+  selectedRelativePaths: string[];
+  idPrefix: string;
+  summaryImport?: number;
+}
+
+export interface GeneratedJsonl {
+  manifest: CompositeManifest;
+  text: string;
+  suggestedFileName: string;
+  selectedCount: number;
+}
+
+export interface ConversionScannedSelectors {
+  motions: string[];
+  expressions: string[];
+}
+
+export interface ConversionReport {
+  inputPath: string;
+  outputPath: string;
+  warnings: string[];
+  scannedSelectors: ConversionScannedSelectors;
+}
+
+export type PartsPresetMap = Record<string, string[]>;
+
+export interface PresetTarget {
+  modelPath: string;
+  relativePath: string;
+  detectedPreset: string;
+}
+
+export interface PresetSourceScope {
+  mode: string;
+  subdir?: string;
+}
+
+export interface PresetApplyRow {
+  modelPath: string;
+  presetName: string;
+  checked: boolean;
+  initOpacities?: ModelPartOpacity[];
+}
+
+export interface PresetApplyPayload {
+  rootDir: string;
+  rows: PresetApplyRow[];
+  sourceScope: PresetSourceScope;
+  fileMoveMode: string;
+}
+
+export interface PresetApplyReport {
+  updatedModels: string[];
+  exportedAssets: string[];
+  skippedAssets: string[];
+  warnings: string[];
+}
+
+export interface SelectorCopyPayload {
+  sourceModelPath: string;
+  targetModelPaths: string[];
+  fields: string[];
+  mode: string;
+}
+
+export interface SelectorCopyReport {
+  updatedModels: string[];
+  warnings: string[];
+}
+
 export interface ResolvedCompositePart extends CompositePart {
   resolvedPath: string;
 }
@@ -148,5 +257,6 @@ export interface PreviewSession {
   background: string;
   sourceLabel: string;
   singleModelPath?: string | null;
+  singleModelState?: EditableModelState | null;
   compositeManifest?: ResolvedCompositeManifest | null;
 }

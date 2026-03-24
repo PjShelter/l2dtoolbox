@@ -2,6 +2,7 @@
 import { listen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import BackgroundSwatchField from "../components/BackgroundSwatchField.vue";
 import PreviewCanvas from "../components/PreviewCanvas.vue";
 import {
   loadPreviewSession,
@@ -63,6 +64,15 @@ function onPreviewLoaded(snapshot: PreviewStateSnapshot) {
   importValue.value = snapshot.importValue;
   layerStates.value = snapshot.layers.map((layer) => ({ ...layer }));
   status.value = "预览已就绪";
+  if (selectedMotion.value) {
+    previewCanvas.value?.applyMotion(selectedMotion.value);
+  }
+  if (selectedExpression.value) {
+    previewCanvas.value?.applyExpression(selectedExpression.value);
+  }
+  if (importValue.value !== undefined) {
+    previewCanvas.value?.applyImport(importValue.value);
+  }
 }
 
 function onPreviewError(message: string) {
@@ -116,16 +126,12 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="preview-window__controls">
-        <label class="preview-window__background color-field">
-          <span>背景</span>
-          <input
-            :disabled="!session"
-            :value="session?.background ?? '#000000'"
-            class="color-picker"
-            type="color"
-            @input="updateBackground(($event.target as HTMLInputElement).value)"
-          />
-        </label>
+        <BackgroundSwatchField
+          :disabled="!session"
+          :model-value="session?.background ?? '#000000'"
+          class="preview-window__background"
+          @update:model-value="updateBackground"
+        />
 
         <label>
           motion
@@ -197,6 +203,7 @@ onBeforeUnmount(() => {
         ref="previewCanvas"
         :background="session.background"
         :single-model-path="session.singleModelPath"
+        :single-model-state="session.singleModelState"
         :composite-manifest="session.compositeManifest"
         @loaded="onPreviewLoaded"
         @error="onPreviewError"

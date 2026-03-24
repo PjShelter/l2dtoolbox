@@ -152,6 +152,10 @@ textarea::placeholder {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.page-grid--fill .section-card {
+  min-height: calc(100vh - 2rem);
+}
+
 .section-card {
   border-radius: 14px;
   border: 1px solid var(--panel-border);
@@ -202,6 +206,36 @@ textarea::placeholder {
   padding: 0.2rem;
   border-radius: 10px;
   cursor: pointer;
+}
+
+.swatch-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.swatch-field span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.swatch-field__select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.swatch-field__select i {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  flex: 0 0 auto;
+}
+
+.swatch-field__select select {
+  width: 132px;
+  min-width: 132px;
 }
 
 .summary-grid {
@@ -374,6 +408,97 @@ textarea::placeholder {
   padding: 0.35rem 0.55rem;
 }
 
+.generator-list,
+.editor-table {
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.generator-list table,
+.editor-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #1f1f1f;
+}
+
+.generator-list th,
+.generator-list td,
+.editor-table th,
+.editor-table td {
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: middle;
+}
+
+.generator-list th,
+.editor-table th {
+  position: sticky;
+  top: 0;
+  background: #2b2b2b;
+  text-align: left;
+  z-index: 1;
+}
+
+.generator-list__check {
+  width: 48px;
+  text-align: center;
+}
+
+.generator-list__check input {
+  width: auto;
+}
+
+.generator-list__actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.generator-list__actions button {
+  padding: 0.3rem 0.52rem;
+  border-radius: 8px;
+}
+
+.generator-list-actions,
+.preset-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.generator-inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.generator-inline-check input {
+  width: auto;
+}
+
+.preset-copy-box {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.editor-table {
+  max-height: 520px;
+}
+
+.editor-table td input,
+.editor-table td select {
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+}
+
+.editor-table--compact {
+  max-height: 420px;
+}
+
 .preview-shell {
   position: relative;
   min-height: 520px;
@@ -439,7 +564,7 @@ textarea::placeholder {
 
 .preview-window__controls {
   display: grid;
-  grid-template-columns: minmax(180px, 1.1fr) repeat(3, minmax(140px, 0.9fr)) minmax(220px, auto);
+  grid-template-columns: minmax(170px, 220px) repeat(3, minmax(130px, 1fr)) minmax(220px, auto);
   gap: 0.8rem;
   align-items: end;
 }
@@ -460,6 +585,18 @@ textarea::placeholder {
 
 .preview-window__inline-status span {
   white-space: nowrap;
+}
+
+.preview-window__background .swatch-field {
+  width: 100%;
+}
+
+.preview-window__background .swatch-field__select {
+  width: 100%;
+}
+
+.preview-window__background .swatch-field__select select {
+  width: 100%;
 }
 
 .preview-window__layers {

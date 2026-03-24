@@ -1,6 +1,8 @@
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
@@ -8,11 +10,50 @@ use walkdir::WalkDir;
 
 use crate::types::{
     CompositeDiagnostic, CompositeManifest, CompositePart, CompositeSummary,
+    ConversionReport, ConversionScannedSelectors, GeneratedJsonl, JsonlGenerationPayload,
     OptimizedCompositeModel, ResolvedCompositeManifest, ResolvedCompositePart,
 };
 
 const MEDIA_IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "avif", "bmp"];
 const MEDIA_VIDEO_EXTS: &[&str] = &["webm", "mp4", "ogv", "mov", "mkv"];
+const FLOAT_EPSILON: f64 = 0.000_001;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WmdlDocument {
+    name: String,
+    model_relative_path: String,
+    figure_template: String,
+    transform_template: String,
+    #[serde(default)]
+    sub_models: Vec<WmdlSubModel>,
+    #[serde(default)]
+    x: f64,
+    #[serde(default)]
+    y: f64,
+    #[serde(default = "default_scale")]
+    scale: f64,
+    #[serde(default)]
+    rotation: f64,
+    #[serde(default)]
+    reverse_x: bool,
+    #[serde(default)]
+    live2d_bounds: [f64; 4],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WmdlSubModel {
+    model_relative_path: String,
+    #[serde(default)]
+    offset_x: f64,
+    #[serde(default)]
+    offset_y: f64,
+}
+
+fn default_scale() -> f64 {
+    1.0
+}
 
 pub fn read_jsonl(file_path: &str) -> Result<CompositeManifest> {
     let text = fs::read_to_string(file_path)?;
@@ -114,6 +155,99 @@ pub fn optimize_jsonl(manifest: CompositeManifest) -> OptimizedCompositeModel {
     }
 }
 
+pub fn generate_jsonl_from_selection(payload: &JsonlGenerationPayload) -> Result<GeneratedJsonl> {
+    if payload.selected_relative_paths.is_empty() {
+        anyhow::bail!("At least one model must be selected.");
+    }
+
+    let root_dir = Path::new(&payload.root_dir);
+    let root_name = root_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("model");
+
+    let mut parts = Vec::new();
+    let mut common_motions: Option<BTreeSet<String>> = None;
+    let mut expressions = Vec::new();
+
+    for (index, relative_path) in payload.selected_relative_paths.iter().enumerate() {
+        let normalized_relative = normalize_slashes(relative_path);
+        let absolute_path = root_dir.join(relative_path);
+        if !absolute_path.is_file() {
+            anyhow::bail!("Model file does not exist: {}", absolute_path.to_string_lossy());
+        }
+        if !is_model_json(&absolute_path) {
+            anyhow::bail!(
+                "Selected file is not a supported model settings file: {}",
+                absolute_path.to_string_lossy()
+            );
+        }
+
+        let selectors = read_model_selectors_from_path(&absolute_path)?;
+        let motion_set = selectors.motions.into_iter().collect::<BTreeSet<_>>();
+        common_motions = Some(match common_motions.take() {
+            Some(existing) => existing
+                .intersection(&motion_set)
+                .cloned()
+                .collect::<BTreeSet<_>>(),
+            None => motion_set,
+        });
+
+        for expression in selectors.expressions {
+            if !expressions.iter().any(|item| item == &expression) {
+                expressions.push(expression);
+            }
+        }
+
+        let folder = Path::new(&normalized_relative)
+            .parent()
+            .and_then(|path| path.to_str())
+            .map(normalize_slashes)
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| ".".to_string());
+
+        parts.push(CompositePart {
+            path: normalized_relative,
+            part_type: None,
+            id: Some(format!("{}{}", payload.id_prefix, index)),
+            folder: Some(folder),
+            index: Some(index as i64),
+            x: None,
+            y: None,
+            xscale: None,
+            yscale: None,
+            loop_flag: None,
+            muted: None,
+            autoplay: None,
+            playsinline: None,
+            line_number: None,
+        });
+    }
+
+    let manifest = CompositeManifest {
+        source: None,
+        raw_text: String::new(),
+        parts,
+        summary: CompositeSummary {
+            version: None,
+            motions: common_motions.map(|items| items.into_iter().collect()),
+            expressions: Some(expressions).filter(|items| !items.is_empty()),
+            import: payload.summary_import,
+            line_number: None,
+        },
+        diagnostics: Vec::new(),
+    };
+    let optimized = optimize_jsonl(manifest);
+
+    Ok(GeneratedJsonl {
+        manifest: optimized.manifest,
+        text: optimized.text,
+        suggested_file_name: format!("{root_name}.jsonl"),
+        selected_count: payload.selected_relative_paths.len(),
+    })
+}
+
 pub fn stringify_composite_jsonl(parts: &[CompositePart], summary: &CompositeSummary) -> String {
     let mut lines = Vec::new();
     for part in parts {
@@ -159,6 +293,167 @@ pub fn write_jsonl(file_path: &str, manifest: CompositeManifest) -> Result<usize
     Ok(text.as_bytes().len())
 }
 
+pub fn jsonl_to_wmdl(file_path: &str) -> Result<ConversionReport> {
+    let manifest = read_jsonl(file_path)?;
+    let file_stem = Path::new(file_path)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("model")
+        .to_string();
+
+    let mut warnings = Vec::new();
+    let live2d_parts = manifest
+        .parts
+        .iter()
+        .filter_map(|part| {
+            let part_type = infer_part_type(part);
+            if part_type != "live2d" {
+                warnings.push(format!("Skipped non-live2d part: {}", part.path));
+                return None;
+            }
+            Some(part.clone())
+        })
+        .collect::<Vec<_>>();
+
+    if live2d_parts.is_empty() {
+        anyhow::bail!("JSONL does not contain any live2d parts.");
+    }
+
+    let main_part = live2d_parts[0].clone();
+    let main_x = main_part.x.unwrap_or(0.0);
+    let main_y = main_part.y.unwrap_or(0.0);
+    let scale = choose_uniform_scale(&main_part, &mut warnings);
+
+    let sub_models = live2d_parts
+        .iter()
+        .skip(1)
+        .map(|part| {
+            if !is_uniform_scale(part) {
+                warnings.push(format!(
+                    "Part {} uses non-uniform scaling; WMDL only keeps a single scale.",
+                    part.path
+                ));
+            }
+            WmdlSubModel {
+                model_relative_path: normalize_slashes(&part.path),
+                offset_x: part.x.unwrap_or(0.0) - main_x,
+                offset_y: part.y.unwrap_or(0.0) - main_y,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let wmdl = WmdlDocument {
+        name: file_stem.clone(),
+        model_relative_path: normalize_slashes(&main_part.path),
+        figure_template: format!("changeFigure:%conf_path% -id={file_stem}_0 -zIndex=0 %me_0%;"),
+        transform_template: format!("setTransform:%me_0% -target={file_stem}_0 -duration=750 -writeDefault;"),
+        sub_models,
+        x: main_x,
+        y: main_y,
+        scale,
+        rotation: 0.0,
+        reverse_x: false,
+        live2d_bounds: [0.0, 0.0, 0.0, 0.0],
+    };
+
+    let output_path = Path::new(file_path)
+        .with_extension("wmdl")
+        .to_string_lossy()
+        .to_string();
+    let output_text = serde_json::to_string_pretty(&wmdl)?;
+    fs::write(&output_path, output_text)?;
+
+    Ok(ConversionReport {
+        input_path: file_path.to_string(),
+        output_path,
+        warnings,
+        scanned_selectors: ConversionScannedSelectors {
+            motions: manifest.summary.motions.unwrap_or_default(),
+            expressions: manifest.summary.expressions.unwrap_or_default(),
+        },
+    })
+}
+
+pub fn wmdl_to_jsonl(file_path: &str, figure_root_dir: Option<&str>) -> Result<ConversionReport> {
+    let text = fs::read_to_string(file_path)?;
+    let wmdl = serde_json::from_str::<WmdlDocument>(&text)?;
+
+    let mut parts = Vec::new();
+    let main_folder = dirname_text(&wmdl.model_relative_path);
+    parts.push(CompositePart {
+        path: normalize_slashes(&wmdl.model_relative_path),
+        part_type: None,
+        id: Some("dao0".to_string()),
+        folder: Some(main_folder),
+        index: Some(0),
+        x: Some(wmdl.x),
+        y: Some(wmdl.y),
+        xscale: Some(wmdl.scale),
+        yscale: Some(wmdl.scale),
+        loop_flag: None,
+        muted: None,
+        autoplay: None,
+        playsinline: None,
+        line_number: None,
+    });
+
+    for (index, sub_model) in wmdl.sub_models.iter().enumerate() {
+        parts.push(CompositePart {
+            path: normalize_slashes(&sub_model.model_relative_path),
+            part_type: None,
+            id: Some(format!("dao{}", index + 1)),
+            folder: Some(dirname_text(&sub_model.model_relative_path)),
+            index: Some((index + 1) as i64),
+            x: Some(wmdl.x + sub_model.offset_x),
+            y: Some(wmdl.y + sub_model.offset_y),
+            xscale: Some(wmdl.scale),
+            yscale: Some(wmdl.scale),
+            loop_flag: None,
+            muted: None,
+            autoplay: None,
+            playsinline: None,
+            line_number: None,
+        });
+    }
+
+    let mut warnings = Vec::new();
+    let scanned_selectors = scan_selectors_for_paths(
+        figure_root_dir.map(PathBuf::from),
+        parts.iter().map(|part| part.path.clone()).collect(),
+        &mut warnings,
+    );
+
+    let manifest = CompositeManifest {
+        source: None,
+        raw_text: String::new(),
+        parts,
+        summary: CompositeSummary {
+            version: None,
+            motions: Some(scanned_selectors.motions.clone()).filter(|items| !items.is_empty()),
+            expressions: Some(scanned_selectors.expressions.clone())
+                .filter(|items| !items.is_empty()),
+            import: None,
+            line_number: None,
+        },
+        diagnostics: Vec::new(),
+    };
+    let optimized = optimize_jsonl(manifest);
+
+    let output_path = Path::new(file_path)
+        .with_extension("jsonl")
+        .to_string_lossy()
+        .to_string();
+    fs::write(&output_path, format!("{}\n", optimized.text))?;
+
+    Ok(ConversionReport {
+        input_path: file_path.to_string(),
+        output_path,
+        warnings,
+        scanned_selectors,
+    })
+}
+
 pub fn resolve_preview_assets(
     source_path: &str,
     manifest: CompositeManifest,
@@ -185,6 +480,110 @@ pub fn resolve_preview_assets(
         summary: manifest.summary,
         diagnostics: manifest.diagnostics,
     })
+}
+
+fn scan_selectors_for_paths(
+    figure_root_dir: Option<PathBuf>,
+    relative_paths: Vec<String>,
+    warnings: &mut Vec<String>,
+) -> ConversionScannedSelectors {
+    let mut motions = Vec::new();
+    let mut expressions = Vec::new();
+
+    let Some(root_dir) = figure_root_dir else {
+        return ConversionScannedSelectors { motions, expressions };
+    };
+
+    for relative_path in relative_paths {
+        let candidate = root_dir.join(&relative_path);
+        if !candidate.exists() {
+            warnings.push(format!("Selector scan skipped missing model: {}", candidate.to_string_lossy()));
+            continue;
+        }
+        match read_model_selectors_from_path(&candidate) {
+            Ok(selectors) => {
+                for motion in selectors.motions {
+                    if !motions.iter().any(|item| item == &motion) {
+                        motions.push(motion);
+                    }
+                }
+                for expression in selectors.expressions {
+                    if !expressions.iter().any(|item| item == &expression) {
+                        expressions.push(expression);
+                    }
+                }
+            }
+            Err(error) => warnings.push(format!(
+                "Selector scan failed for {}: {}",
+                candidate.to_string_lossy(),
+                error
+            )),
+        }
+    }
+
+    ConversionScannedSelectors { motions, expressions }
+}
+
+fn read_model_selectors_from_path(path: &Path) -> Result<ConversionScannedSelectors> {
+    let text = fs::read_to_string(path)?;
+    let value = serde_json::from_str::<Value>(&text)?;
+    Ok(read_model_selectors_from_value(&value))
+}
+
+fn read_model_selectors_from_value(value: &Value) -> ConversionScannedSelectors {
+    let motions = value
+        .get("motions")
+        .and_then(Value::as_object)
+        .map(|items| items.keys().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    let expressions = value
+        .get("expressions")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items.iter()
+                .filter_map(|item| {
+                    item.get("name")
+                        .and_then(Value::as_str)
+                        .map(|text| text.trim().to_string())
+                        .filter(|text| !text.is_empty())
+                        .or_else(|| item.as_str().map(|text| text.trim().to_string()))
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    ConversionScannedSelectors {
+        motions: dedupe_strings(motions),
+        expressions: dedupe_strings(expressions),
+    }
+}
+
+fn choose_uniform_scale(part: &CompositePart, warnings: &mut Vec<String>) -> f64 {
+    let xscale = part.xscale.unwrap_or(1.0);
+    let yscale = part.yscale.unwrap_or(xscale);
+    if (xscale - yscale).abs() > FLOAT_EPSILON {
+        warnings.push(format!(
+            "Part {} uses non-uniform scaling ({xscale}, {yscale}); WMDL keeps {xscale}.",
+            part.path
+        ));
+    }
+    xscale
+}
+
+fn is_uniform_scale(part: &CompositePart) -> bool {
+    let xscale = part.xscale.unwrap_or(1.0);
+    let yscale = part.yscale.unwrap_or(xscale);
+    (xscale - yscale).abs() <= FLOAT_EPSILON
+}
+
+fn dirname_text(path: &str) -> String {
+    Path::new(path)
+        .parent()
+        .and_then(|value| value.to_str())
+        .map(normalize_slashes)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| ".".to_string())
 }
 
 pub fn resolve_model_path(jsonl_dir: &Path, raw_path: &str) -> Option<PathBuf> {

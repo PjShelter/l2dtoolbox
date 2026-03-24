@@ -7,6 +7,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   update: [parts: CompositePart[]];
+  requestPath: [index: number];
 }>();
 
 const typeOptions: CompositePartType[] = ["live2d", "image", "gif", "video"];
@@ -200,6 +201,7 @@ function move(index: number, direction: -1 | 1): void {
               />
             </td>
             <td class="parts-table__actions">
+              <button type="button" @click="emit('requestPath', index)">路径</button>
               <button type="button" @click="move(index, -1)">↑</button>
               <button type="button" @click="move(index, 1)">↓</button>
               <button type="button" @click="removeRow(index)">删</button>

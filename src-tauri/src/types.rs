@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -139,6 +140,135 @@ pub struct FileWriteReport {
     pub written_bytes: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelPartOpacity {
+    pub id: String,
+    pub value: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInitParam {
+    pub id: String,
+    pub value: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_value: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_value: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_value: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelJsonDocument {
+    pub file_path: String,
+    pub model_version: String,
+    pub init_opacities: Vec<ModelPartOpacity>,
+    pub init_params: Vec<ModelInitParam>,
+    pub motions: Vec<String>,
+    pub expressions: Vec<String>,
+    pub data: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JsonlGenerationPayload {
+    pub root_dir: String,
+    pub selected_relative_paths: Vec<String>,
+    pub id_prefix: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary_import: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratedJsonl {
+    pub manifest: CompositeManifest,
+    pub text: String,
+    pub suggested_file_name: String,
+    pub selected_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ConversionScannedSelectors {
+    pub motions: Vec<String>,
+    pub expressions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConversionReport {
+    pub input_path: String,
+    pub output_path: String,
+    pub warnings: Vec<String>,
+    pub scanned_selectors: ConversionScannedSelectors,
+}
+
+pub type PartsPresetMap = BTreeMap<String, Vec<String>>;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetTarget {
+    pub model_path: String,
+    pub relative_path: String,
+    pub detected_preset: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetSourceScope {
+    pub mode: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subdir: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetApplyRow {
+    pub model_path: String,
+    pub preset_name: String,
+    pub checked: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub init_opacities: Option<Vec<ModelPartOpacity>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetApplyPayload {
+    pub root_dir: String,
+    pub rows: Vec<PresetApplyRow>,
+    pub source_scope: PresetSourceScope,
+    pub file_move_mode: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetApplyReport {
+    pub updated_models: Vec<String>,
+    pub exported_assets: Vec<String>,
+    pub skipped_assets: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectorCopyPayload {
+    pub source_model_path: String,
+    pub target_model_paths: Vec<String>,
+    pub fields: Vec<String>,
+    pub mode: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectorCopyReport {
+    pub updated_models: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -160,8 +290,7 @@ impl Default for AppSettings {
         Self {
             recent_paths: Vec::new(),
             active_module: "model-tools".to_string(),
-            preview_background:
-                "radial-gradient(circle at top, #2e645f, #091514 72%)".to_string(),
+            preview_background: "#000000".to_string(),
             last_model_dir: None,
             last_jsonl_dir: None,
             recent_motion: None,

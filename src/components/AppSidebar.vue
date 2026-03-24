@@ -11,7 +11,11 @@ const emit = defineEmits<{
 
 const items: Array<{ id: AppModule; label: string }> = [
   { id: "model-tools", label: "模型工具" },
-  { id: "jsonl-workbench", label: "JSONL 工作台" },
+  { id: "part-editor", label: "略爱区编辑器" },
+  { id: "jsonl-generator", label: "生成 JSONL" },
+  { id: "jsonl-editor", label: "编辑 JSONL" },
+  { id: "wmdl-converter", label: "WMDL 转换" },
+  { id: "preset-builder", label: "一键生成拼好模" },
   { id: "preview", label: "预览" },
 ];
 </script>
