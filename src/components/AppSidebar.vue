@@ -9,14 +9,14 @@ const emit = defineEmits<{
   select: [module: AppModule];
 }>();
 
-const items: Array<{ id: AppModule; label: string }> = [
-  { id: "model-tools", label: "模型工具" },
-  { id: "part-editor", label: "略爱区编辑器" },
-  { id: "jsonl-generator", label: "生成 JSONL" },
-  { id: "jsonl-editor", label: "编辑 JSONL" },
-  { id: "wmdl-converter", label: "WMDL 转换" },
-  { id: "preset-builder", label: "一键生成拼好模" },
-  { id: "preview", label: "预览" },
+const items: Array<{ id: AppModule; label: string; icon: string }> = [
+  { id: "model-tools",     label: "模型工具",    icon: "⚙" },
+  { id: "part-editor",     label: "零件编辑器",   icon: "◧" },
+  { id: "jsonl-generator", label: "生成 JSONL",  icon: "+" },
+  { id: "jsonl-editor",    label: "编辑 JSONL",  icon: "✎" },
+  { id: "wmdl-converter",  label: "WMDL 转换",   icon: "⇄" },
+  { id: "preset-builder",  label: "一键生成拼好模", icon: "◈" },
+  { id: "preview",         label: "预览",        icon: "▶" },
 ];
 </script>
 
@@ -34,6 +34,7 @@ const items: Array<{ id: AppModule; label: string }> = [
         :class="{ 'sidebar__item--active': item.id === activeModule }"
         @click="emit('select', item.id)"
       >
+        <span class="sidebar__item-icon">{{ item.icon }}</span>
         {{ item.label }}
       </button>
     </nav>
