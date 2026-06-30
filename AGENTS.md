@@ -3,6 +3,10 @@
 Compact guidance for OpenCode sessions working in `l2dtoolbox`.
 See also `CLAUDE.md` for the original architecture overview.
 
+## Provenance
+
+This repo is a refactor of [PjShelter/live2dtoolbox](https://github.com/PjShelter/live2dtoolbox). When tracing unexplained conventions, naming, or data formats, check the upstream repo for historical context before assuming a local bug.
+
 ## Commands
 
 ```bash

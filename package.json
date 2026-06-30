@@ -1,7 +1,7 @@
 {
   "name": "l2dtoolbox",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,9 @@
     "test": "vitest run",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:build:mac": "scripts/build-macos-dmg.sh",
+    "tauri:build:mac:universal": "scripts/build-macos-dmg.sh --universal"
   },
   "dependencies": {
     "@pixi/gif": "1.1.3",

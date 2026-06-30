@@ -189,6 +189,7 @@ function resolveAsset(modelDir: string, resourcePath: string): string {
 function normalizeJoinedPath(path: string): string {
   const normalized = normalizeAssetPath(path);
   const prefix = normalized.match(/^[A-Za-z]:\//)?.[0] ?? "";
+  const isUnixAbsolute = !prefix && normalized.startsWith("/");
   const body = prefix ? normalized.slice(prefix.length) : normalized;
   const stack: string[] = [];
 
@@ -203,7 +204,7 @@ function normalizeJoinedPath(path: string): string {
     stack.push(segment);
   }
 
-  return `${prefix}${stack.join("/")}`;
+  return `${prefix}${isUnixAbsolute ? "/" : ""}${stack.join("/")}`;
 }
 
 function dirname(filePath: string): string {

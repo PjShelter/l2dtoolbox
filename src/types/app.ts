@@ -5,6 +5,7 @@ export type AppModule =
   | "jsonl-editor"
   | "wmdl-converter"
   | "preset-builder"
+  | "import-table"
   | "preview";
 
 export type CompositeDiagnosticSeverity = "warning" | "error";

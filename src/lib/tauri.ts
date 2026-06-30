@@ -126,6 +126,10 @@ export function generateJsonlFromSelection(
   return invoke("generate_jsonl_from_selection", { payload });
 }
 
+export function readWmdl(filePath: string): Promise<CompositeManifest> {
+  return invoke("read_wmdl", { filePath });
+}
+
 export function jsonlToWmdl(filePath: string): Promise<ConversionReport> {
   return invoke("jsonl_to_wmdl", { filePath });
 }

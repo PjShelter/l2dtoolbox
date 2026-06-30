@@ -6,3 +6,4 @@ src-tauri/gen/
 /lib/
 .claude/
 CLAUDE.md
+AGENTS.md

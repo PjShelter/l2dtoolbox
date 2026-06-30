@@ -1,6 +1,6 @@
 # l2dtoolbox
 
-`l2dtoolbox` 是一个面向 Windows 的 `Vue + Tauri` 桌面工具，用来替代旧的 `PySide + pygame/live2d-py` 方案，统一处理：
+本项目是 [PjShelter/live2dtoolbox](https://github.com/PjShelter/live2dtoolbox) 的重构版本，将原有的 `PySide + pygame/live2d-py` 方案替换为 `Vue + Tauri` 桌面工具，统一处理：
 
 - `model.json` 批处理
 - `.jsonl` 生成、编辑、规范化
@@ -54,6 +54,23 @@ pnpm build
 pnpm test
 cd src-tauri && cargo test && cargo check
 ```
+
+构建 macOS 可安装 DMG：
+
+```bash
+pnpm tauri:build:mac
+```
+
+产物位于 `src-tauri/target/release/bundle/dmg/`。该命令使用 ad-hoc 签名，适合本地分发测试；正式公开分发前应改用 Apple Developer ID 签名和 notarization。
+
+如果要同时支持 Intel 和 Apple Silicon：
+
+```bash
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+pnpm tauri:build:mac:universal
+```
+
+Universal DMG 产物位于 `src-tauri/target/universal-apple-darwin/release/bundle/dmg/`。
 
 ## 资源说明
 

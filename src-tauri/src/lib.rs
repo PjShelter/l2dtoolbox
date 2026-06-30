@@ -94,6 +94,11 @@ fn generate_jsonl_from_selection(payload: JsonlGenerationPayload) -> Result<Gene
 }
 
 #[tauri::command]
+fn read_wmdl(file_path: String) -> Result<CompositeManifest, String> {
+    jsonl::read_wmdl(&file_path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn jsonl_to_wmdl(file_path: String) -> Result<ConversionReport, String> {
     jsonl::jsonl_to_wmdl(&file_path).map_err(|error| error.to_string())
 }
@@ -165,6 +170,7 @@ pub fn run() {
             optimize_jsonl,
             resolve_preview_assets,
             generate_jsonl_from_selection,
+            read_wmdl,
             jsonl_to_wmdl,
             wmdl_to_jsonl,
             read_model_json,

@@ -17,6 +17,7 @@ use crate::types::{
 const MEDIA_IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "avif", "bmp"];
 const MEDIA_VIDEO_EXTS: &[&str] = &["webm", "mp4", "ogv", "mov", "mkv"];
 const FLOAT_EPSILON: f64 = 0.000_001;
+const DEFAULT_JSONL_VERSION: i64 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -137,7 +138,7 @@ pub fn optimize_jsonl(manifest: CompositeManifest) -> OptimizedCompositeModel {
     }
 
     let mut summary = clean_summary(manifest.summary.clone());
-    if summary.version.is_none() && requires_version_two(&parts) {
+    if requires_version_two(&parts) && summary.version.unwrap_or(DEFAULT_JSONL_VERSION) < 2 {
         summary.version = Some(2);
     }
 
@@ -230,7 +231,7 @@ pub fn generate_jsonl_from_selection(payload: &JsonlGenerationPayload) -> Result
         raw_text: String::new(),
         parts,
         summary: CompositeSummary {
-            version: None,
+            version: Some(DEFAULT_JSONL_VERSION),
             motions: common_motions.map(|items| items.into_iter().collect()),
             expressions: Some(expressions).filter(|items| !items.is_empty()),
             import: payload.summary_import,
@@ -375,7 +376,33 @@ pub fn jsonl_to_wmdl(file_path: &str) -> Result<ConversionReport> {
     })
 }
 
+pub fn read_wmdl(file_path: &str) -> Result<CompositeManifest> {
+    let (text, _warnings, _scanned) = convert_wmdl_to_jsonl_text(file_path, None)?;
+    Ok(parse_composite_jsonl(&text, Some(file_path.to_string())))
+}
+
 pub fn wmdl_to_jsonl(file_path: &str, figure_root_dir: Option<&str>) -> Result<ConversionReport> {
+    let (text, warnings, scanned_selectors) =
+        convert_wmdl_to_jsonl_text(file_path, figure_root_dir)?;
+
+    let output_path = Path::new(file_path)
+        .with_extension("jsonl")
+        .to_string_lossy()
+        .to_string();
+    fs::write(&output_path, format!("{}\n", text))?;
+
+    Ok(ConversionReport {
+        input_path: file_path.to_string(),
+        output_path,
+        warnings,
+        scanned_selectors,
+    })
+}
+
+fn convert_wmdl_to_jsonl_text(
+    file_path: &str,
+    figure_root_dir: Option<&str>,
+) -> Result<(String, Vec<String>, ConversionScannedSelectors)> {
     let text = fs::read_to_string(file_path)?;
     let wmdl = serde_json::from_str::<WmdlDocument>(&text)?;
 
@@ -417,9 +444,13 @@ pub fn wmdl_to_jsonl(file_path: &str, figure_root_dir: Option<&str>) -> Result<C
         });
     }
 
+    let figure_root = figure_root_dir
+        .map(PathBuf::from)
+        .or_else(|| Path::new(file_path).parent().map(PathBuf::from));
+
     let mut warnings = Vec::new();
     let scanned_selectors = scan_selectors_for_paths(
-        figure_root_dir.map(PathBuf::from),
+        figure_root,
         parts.iter().map(|part| part.path.clone()).collect(),
         &mut warnings,
     );
@@ -429,7 +460,7 @@ pub fn wmdl_to_jsonl(file_path: &str, figure_root_dir: Option<&str>) -> Result<C
         raw_text: String::new(),
         parts,
         summary: CompositeSummary {
-            version: None,
+            version: Some(DEFAULT_JSONL_VERSION),
             motions: Some(scanned_selectors.motions.clone()).filter(|items| !items.is_empty()),
             expressions: Some(scanned_selectors.expressions.clone())
                 .filter(|items| !items.is_empty()),
@@ -440,18 +471,7 @@ pub fn wmdl_to_jsonl(file_path: &str, figure_root_dir: Option<&str>) -> Result<C
     };
     let optimized = optimize_jsonl(manifest);
 
-    let output_path = Path::new(file_path)
-        .with_extension("jsonl")
-        .to_string_lossy()
-        .to_string();
-    fs::write(&output_path, format!("{}\n", optimized.text))?;
-
-    Ok(ConversionReport {
-        input_path: file_path.to_string(),
-        output_path,
-        warnings,
-        scanned_selectors,
-    })
+    Ok((optimized.text, warnings, scanned_selectors))
 }
 
 pub fn resolve_preview_assets(
@@ -862,6 +882,17 @@ fn is_model_json(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::SystemTime;
+
+    fn unique_tmp_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("l2d-wmdl-{label}-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
 
     #[test]
     fn parse_jsonl_extracts_parts_and_summary() {
@@ -873,5 +904,151 @@ mod tests {
         assert_eq!(manifest.parts.len(), 1);
         assert_eq!(manifest.summary.motions.unwrap(), vec!["idle01".to_string()]);
         assert_eq!(manifest.summary.import, Some(50.0));
+    }
+
+    #[test]
+    fn generate_jsonl_defaults_to_version_one() {
+        let dir = unique_tmp_dir("gen-v1");
+        let body = dir.join("1.body");
+        let face = dir.join("2.face");
+        fs::create_dir_all(&body).unwrap();
+        fs::create_dir_all(&face).unwrap();
+        fs::write(
+            body.join("model.json"),
+            "{\"version\":\"Sample 1.0.0\",\"layout\":{},\"model\":\"body.moc\",\
+             \"motions\":{\"idle\":[{\"file\":\"idle.mtn\"}],\"wave\":[{\"file\":\"wave.mtn\"}]},\
+             \"expressions\":[{\"name\":\"smile\",\"file\":\"smile.exp.json\"}]}",
+        )
+        .unwrap();
+        fs::write(
+            face.join("model.json"),
+            "{\"version\":\"Sample 1.0.0\",\"layout\":{},\"model\":\"face.moc\",\
+             \"motions\":{\"idle\":[{\"file\":\"idle.mtn\"}]},\
+             \"expressions\":[{\"name\":\"blink\",\"file\":\"blink.exp.json\"}]}",
+        )
+        .unwrap();
+
+        let generated = generate_jsonl_from_selection(&JsonlGenerationPayload {
+            root_dir: dir.to_string_lossy().to_string(),
+            selected_relative_paths: vec![
+                "1.body/model.json".to_string(),
+                "2.face/model.json".to_string(),
+            ],
+            id_prefix: "part".to_string(),
+            summary_import: None,
+        })
+        .unwrap();
+
+        assert_eq!(generated.manifest.summary.version, Some(1));
+        assert!(generated.text.contains("\"version\":1"));
+        assert!(generated.text.contains("\"motions\":[\"idle\"]"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn optimize_jsonl_upgrades_v1_when_v2_fields_are_present() {
+        let manifest = CompositeManifest {
+            source: None,
+            raw_text: String::new(),
+            parts: vec![CompositePart {
+                path: "overlay.png".to_string(),
+                part_type: Some("image".to_string()),
+                id: None,
+                folder: None,
+                index: None,
+                x: None,
+                y: None,
+                xscale: None,
+                yscale: None,
+                loop_flag: None,
+                muted: None,
+                autoplay: None,
+                playsinline: None,
+                line_number: None,
+            }],
+            summary: CompositeSummary {
+                version: Some(1),
+                motions: None,
+                expressions: None,
+                import: None,
+                line_number: None,
+            },
+            diagnostics: Vec::new(),
+        };
+
+        let optimized = optimize_jsonl(manifest);
+        assert_eq!(optimized.manifest.summary.version, Some(2));
+        assert!(optimized.text.contains("\"version\":2"));
+    }
+
+    #[test]
+    fn jsonl_to_wmdl_and_back_round_trips_paths_and_offsets() {
+        let dir = unique_tmp_dir("rt");
+        let jsonl_path = dir.join("demo.jsonl");
+        fs::write(
+            &jsonl_path,
+            "{\"path\":\"model/1/main/model.json\",\"x\":10,\"y\":20,\"xscale\":1.5,\"yscale\":1.5}\n\
+             {\"path\":\"model/2/sub/model.json\",\"x\":12,\"y\":25}\n\
+             {\"path\":\"model/3/sub/model.json\",\"x\":8,\"y\":18}\n",
+        )
+        .unwrap();
+
+        let report = jsonl_to_wmdl(jsonl_path.to_str().unwrap()).unwrap();
+        let wmdl_text = fs::read_to_string(&report.output_path).unwrap();
+        let wmdl: WmdlDocument = serde_json::from_str(&wmdl_text).unwrap();
+
+        assert_eq!(wmdl.model_relative_path, "model/1/main/model.json");
+        assert_eq!(wmdl.x, 10.0);
+        assert_eq!(wmdl.y, 20.0);
+        assert_eq!(wmdl.scale, 1.5);
+        assert_eq!(wmdl.sub_models.len(), 2);
+        assert_eq!(wmdl.sub_models[0].model_relative_path, "model/2/sub/model.json");
+        assert_eq!(wmdl.sub_models[0].offset_x, 2.0);
+        assert_eq!(wmdl.sub_models[0].offset_y, 5.0);
+        assert_eq!(wmdl.sub_models[1].offset_x, -2.0);
+        assert_eq!(wmdl.sub_models[1].offset_y, -2.0);
+
+        let wmdl_path = report.output_path;
+        let rt_report = wmdl_to_jsonl(&wmdl_path, None).unwrap();
+        let manifest =
+            parse_composite_jsonl(&fs::read_to_string(&rt_report.output_path).unwrap(), None);
+
+        assert_eq!(manifest.parts.len(), 3);
+        assert_eq!(manifest.parts[0].path, "model/1/main/model.json");
+        assert_eq!(manifest.parts[0].x, Some(10.0));
+        assert_eq!(manifest.parts[0].y, Some(20.0));
+        assert_eq!(manifest.parts[0].xscale, Some(1.5));
+        assert_eq!(manifest.parts[1].x, Some(12.0));
+        assert_eq!(manifest.parts[1].y, Some(25.0));
+        assert_eq!(manifest.parts[2].x, Some(8.0));
+        assert_eq!(manifest.parts[2].y, Some(18.0));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_wmdl_assigns_line_numbers_matching_raw_text() {
+        let dir = unique_tmp_dir("read");
+        let wmdl_path = dir.join("demo.wmdl");
+        fs::write(
+            &wmdl_path,
+            "{\"name\":\"demo\",\"modelRelativePath\":\"a/model.json\",\
+             \"figureTemplate\":\"\",\"transformTemplate\":\"\",\
+             \"subModels\":[{\"modelRelativePath\":\"b/model.json\",\"offsetX\":1,\"offsetY\":2}],\
+             \"x\":5,\"y\":6,\"scale\":1}",
+        )
+        .unwrap();
+
+        let manifest = read_wmdl(wmdl_path.to_str().unwrap()).unwrap();
+        assert_eq!(manifest.parts.len(), 2);
+        assert_eq!(manifest.parts[0].line_number, Some(1));
+        assert_eq!(manifest.parts[1].line_number, Some(2));
+        assert_eq!(manifest.parts[0].path, "a/model.json");
+        assert_eq!(manifest.parts[1].x, Some(6.0));
+        assert_eq!(manifest.parts[1].y, Some(8.0));
+        assert!(!manifest.raw_text.is_empty());
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }

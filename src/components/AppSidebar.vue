@@ -45,7 +45,7 @@ const previewItem = { id: "preview" as AppModule, label: "预览", icon: "▶" }
     <!-- Logo / Brand -->
     <div class="sidebar__header">
       <div class="sidebar__logo">
-        <div class="sidebar__logo-mark">L</div>
+        <img class="sidebar__logo-mark" src="/favicon.ico" alt="" aria-hidden="true" />
         <span class="sidebar__logo-text">Live2D 工具箱</span>
       </div>
     </div>

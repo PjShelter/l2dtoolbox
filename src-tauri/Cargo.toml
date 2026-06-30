@@ -1,8 +1,8 @@
 [package]
 name = "l2dtoolbox"
-version = "0.1.0"
+version = "0.1.1"
 description = "Live2D Toolbox"
-authors = ["OpenAI Codex"]
+authors = ["Dongshan Randeng"]
 edition = "2021"
 
 [lib]
