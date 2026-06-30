@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import CommandResult from "../components/CommandResult.vue";
+import PageHeader from "../components/PageHeader.vue";
 import SectionCard from "../components/SectionCard.vue";
 import {
   batchAddAssets,
@@ -92,31 +93,47 @@ async function runRemove() {
 </script>
 
 <template>
-  <div class="page-grid page-grid--single">
-    <SectionCard title="模型工具" eyebrow="FILE OPS">
-      <div class="form-stack">
-        <label>
-          扫描目录
+  <PageHeader
+    title="模型工具"
+    eyebrow="FILE OPS"
+    description="扫描目录、清理 model.json、批量导入动作表情、修改 MTN 参数"
+  />
+
+  <div class="page-body">
+    <div class="page-grid page-grid--2x2">
+      <!-- 扫描目录 -->
+      <SectionCard title="扫描目录" eyebrow="SCAN">
+        <div class="form-stack">
+          <p class="helper-text" style="margin:0;font-size:12.5px">
+            扫描指定目录，列出所有 Live2D model.json 文件。
+          </p>
           <div class="inline-picker">
             <input v-model="scanDir" placeholder="选择 Live2D 资源目录" />
             <button type="button" @click="selectScanDir">浏览</button>
             <button type="button" @click="runScan">扫描</button>
           </div>
-        </label>
+        </div>
+      </SectionCard>
 
-        <label>
-          清理 model.json
+      <!-- 清理 model.json -->
+      <SectionCard title="清理 model.json" eyebrow="CLEAN">
+        <div class="form-stack">
+          <p class="helper-text" style="margin:0;font-size:12.5px">
+            移除重复条目和缺失的动作 / 表情文件引用。
+          </p>
           <div class="inline-picker">
             <input v-model="cleanupPath" placeholder="选择 model.json" />
             <button type="button" @click="selectCleanupPath">浏览</button>
             <button type="button" @click="runCleanup">清理</button>
           </div>
-        </label>
+        </div>
+      </SectionCard>
 
-        <label>
-          批量导入动作 / 表情
+      <!-- 批量导入 -->
+      <SectionCard title="批量导入动作 / 表情" eyebrow="BATCH">
+        <div class="form-stack">
           <div class="inline-picker">
-            <input v-model="batchTarget" placeholder="target model.json 或 jsonl" />
+            <input v-model="batchTarget" placeholder="目标 model.json 或 jsonl" />
             <button type="button" @click="selectBatchTarget">目标</button>
           </div>
           <div class="inline-picker">
@@ -124,26 +141,34 @@ async function runRemove() {
             <button type="button" @click="selectBatchAssets">资源</button>
           </div>
           <div class="inline-picker">
-            <input v-model="batchPrefix" placeholder="前缀，可空" />
+            <input v-model="batchPrefix" placeholder="前缀（可空）" />
             <button type="button" @click="runBatchAdd">执行导入</button>
           </div>
-        </label>
+        </div>
+      </SectionCard>
 
-        <label>
-          MTN 参数批处理
+      <!-- MTN 参数 -->
+      <SectionCard title="MTN 参数批处理" eyebrow="MTN">
+        <div class="form-stack">
           <div class="inline-picker">
             <input v-model="paramDir" placeholder="包含 .mtn 的目录" />
             <button type="button" @click="selectParamDir">浏览</button>
           </div>
           <div class="inline-picker">
             <input v-model="paramName" placeholder="PARAM_IMPORT" />
-            <input v-model="paramValue" placeholder="50" />
+            <input v-model="paramValue" placeholder="50" style="max-width:72px" />
             <button type="button" @click="runPatch">写入</button>
             <button type="button" class="ghost" @click="runRemove">删除参数</button>
           </div>
-        </label>
-        <CommandResult :title="activity" :result="commandResult || '尚未执行命令。'" />
-      </div>
-    </SectionCard>
+        </div>
+      </SectionCard>
+    </div>
+
+    <!-- 共享输出 -->
+    <CommandResult
+      style="margin-top:16px"
+      :title="activity"
+      :result="commandResult || '尚未执行命令。'"
+    />
   </div>
 </template>

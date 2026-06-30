@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import CommandResult from "../components/CommandResult.vue";
+import PageHeader from "../components/PageHeader.vue";
 import SectionCard from "../components/SectionCard.vue";
 import { jsonlToWmdl, pickDirectory, pickFile, wmdlToJsonl } from "../lib/tauri";
 
@@ -25,52 +26,79 @@ async function pickFigureRoot() {
 }
 
 async function convertJsonlToWmdl() {
-  if (!jsonlPath.value) {
-    return;
-  }
-  activity.value = "JSONL -> WMDL";
+  if (!jsonlPath.value) return;
+  activity.value = "JSONL → WMDL";
   const result = await jsonlToWmdl(jsonlPath.value);
   resultText.value = JSON.stringify(result, null, 2);
 }
 
 async function convertWmdlToJsonl() {
-  if (!wmdlPath.value) {
-    return;
-  }
-  activity.value = "WMDL -> JSONL";
+  if (!wmdlPath.value) return;
+  activity.value = "WMDL → JSONL";
   const result = await wmdlToJsonl(wmdlPath.value, figureRootDir.value || undefined);
   resultText.value = JSON.stringify(result, null, 2);
 }
 </script>
 
 <template>
-  <div class="page-grid page-grid--single">
-    <SectionCard title="WMDL 转换" eyebrow="CONVERT">
-      <div class="form-stack">
-        <label>
-          JSONL -> WMDL
-          <div class="inline-picker">
-            <input v-model="jsonlPath" placeholder="选择 .jsonl" />
-            <button type="button" @click="pickJsonlPath">浏览</button>
-            <button type="button" @click="convertJsonlToWmdl">转换</button>
-          </div>
-        </label>
+  <PageHeader
+    title="WMDL 转换"
+    eyebrow="CONVERT"
+    description="在 .jsonl 与 .wmdl 格式之间双向转换"
+  />
 
-        <label>
-          WMDL -> JSONL
-          <div class="inline-picker">
-            <input v-model="wmdlPath" placeholder="选择 .wmdl" />
-            <button type="button" @click="pickWmdlPath">浏览</button>
-          </div>
-          <div class="inline-picker">
-            <input v-model="figureRootDir" placeholder="figure 根目录，可空" />
-            <button type="button" @click="pickFigureRoot">目录</button>
-            <button type="button" @click="convertWmdlToJsonl">转换</button>
-          </div>
-        </label>
+  <div class="page-body">
+    <div class="page-grid">
+      <!-- JSONL → WMDL -->
+      <SectionCard title="JSONL → WMDL" eyebrow="EXPORT">
+        <div class="form-stack">
+          <p class="helper-text" style="margin:0;font-size:12.5px">
+            将 .jsonl 合成清单导出为 .wmdl 格式。
+          </p>
+          <label>
+            源文件
+            <div class="inline-picker">
+              <input v-model="jsonlPath" placeholder="选择 .jsonl" />
+              <button type="button" @click="pickJsonlPath">浏览</button>
+            </div>
+          </label>
+          <button type="button" :disabled="!jsonlPath" @click="convertJsonlToWmdl">
+            转换
+          </button>
+        </div>
+      </SectionCard>
 
-        <CommandResult :title="activity" :result="resultText || '尚未执行转换。'" />
-      </div>
-    </SectionCard>
+      <!-- WMDL → JSONL -->
+      <SectionCard title="WMDL → JSONL" eyebrow="IMPORT">
+        <div class="form-stack">
+          <p class="helper-text" style="margin:0;font-size:12.5px">
+            将 .wmdl 文件还原为 .jsonl，可选指定 figure 根目录。
+          </p>
+          <label>
+            源文件
+            <div class="inline-picker">
+              <input v-model="wmdlPath" placeholder="选择 .wmdl" />
+              <button type="button" @click="pickWmdlPath">浏览</button>
+            </div>
+          </label>
+          <label>
+            figure 根目录（可选）
+            <div class="inline-picker">
+              <input v-model="figureRootDir" placeholder="留空则使用文件所在目录" />
+              <button type="button" @click="pickFigureRoot">浏览</button>
+            </div>
+          </label>
+          <button type="button" :disabled="!wmdlPath" @click="convertWmdlToJsonl">
+            转换
+          </button>
+        </div>
+      </SectionCard>
+    </div>
+
+    <CommandResult
+      style="margin-top:16px"
+      :title="activity"
+      :result="resultText || '尚未执行转换。'"
+    />
   </div>
 </template>

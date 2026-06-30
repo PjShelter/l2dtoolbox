@@ -9,34 +9,77 @@ const emit = defineEmits<{
   select: [module: AppModule];
 }>();
 
-const items: Array<{ id: AppModule; label: string; icon: string }> = [
-  { id: "model-tools",     label: "模型工具",    icon: "⚙" },
-  { id: "part-editor",     label: "零件编辑器",   icon: "◧" },
-  { id: "jsonl-generator", label: "生成 JSONL",  icon: "+" },
-  { id: "jsonl-editor",    label: "编辑 JSONL",  icon: "✎" },
-  { id: "wmdl-converter",  label: "WMDL 转换",   icon: "⇄" },
-  { id: "preset-builder",  label: "一键生成拼好模", icon: "◈" },
-  { id: "preview",         label: "预览",        icon: "▶" },
+const groups: Array<{
+  label: string;
+  items: Array<{ id: AppModule; label: string; icon: string }>;
+}> = [
+  {
+    label: "模型",
+    items: [
+      { id: "model-tools", label: "模型工具",    icon: "⚙" },
+      { id: "part-editor", label: "零件编辑器",  icon: "◧" },
+    ],
+  },
+  {
+    label: "JSONL",
+    items: [
+      { id: "jsonl-generator", label: "生成 JSONL", icon: "+" },
+      { id: "jsonl-editor",    label: "编辑 JSONL", icon: "✎" },
+      { id: "wmdl-converter",  label: "WMDL 转换",  icon: "⇄" },
+    ],
+  },
+  {
+    label: "拼好模",
+    items: [
+      { id: "preset-builder", label: "一键生成拼好模", icon: "◈" },
+      { id: "import-table",   label: "IMPORT 参数表",  icon: "⊞" },
+    ],
+  },
 ];
+
+const previewItem = { id: "preview" as AppModule, label: "预览", icon: "▶" };
 </script>
 
 <template>
   <aside class="sidebar">
-    <div class="sidebar__title">
-      <h1>Live2D 工具箱</h1>
+    <!-- Logo / Brand -->
+    <div class="sidebar__header">
+      <div class="sidebar__logo">
+        <div class="sidebar__logo-mark">L</div>
+        <span class="sidebar__logo-text">Live2D 工具箱</span>
+      </div>
     </div>
 
-    <nav class="sidebar__nav">
+    <!-- Grouped navigation -->
+    <div class="sidebar__body">
+      <div v-for="group in groups" :key="group.label" class="sidebar__group">
+        <p class="sidebar__group-label">{{ group.label }}</p>
+        <div class="sidebar__group-items">
+          <button
+            v-for="item in group.items"
+            :key="item.id"
+            class="sidebar__item"
+            :class="{ 'sidebar__item--active': item.id === activeModule }"
+            @click="emit('select', item.id)"
+          >
+            <span class="sidebar__item-icon">{{ item.icon }}</span>
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: preview button -->
+    <div class="sidebar__footer">
       <button
-        v-for="item in items"
-        :key="item.id"
         class="sidebar__item"
-        :class="{ 'sidebar__item--active': item.id === activeModule }"
-        @click="emit('select', item.id)"
+        :class="{ 'sidebar__item--active': activeModule === previewItem.id }"
+        style="width: 100%"
+        @click="emit('select', previewItem.id)"
       >
-        <span class="sidebar__item-icon">{{ item.icon }}</span>
-        {{ item.label }}
+        <span class="sidebar__item-icon">{{ previewItem.icon }}</span>
+        {{ previewItem.label }}
       </button>
-    </nav>
+    </div>
   </aside>
 </template>
