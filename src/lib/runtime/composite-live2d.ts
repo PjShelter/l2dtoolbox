@@ -1,8 +1,5 @@
 import type * as PIXI from "pixi.js";
-import {
-  loadPixiCompositeModel,
-  type LoadedPixiCompositeModel,
-} from "composite-model";
+import type { LoadedPixiCompositeModel } from "composite-model";
 import type {
   PreviewLayerState,
   ResolvedCompositeManifest,
@@ -26,6 +23,7 @@ export async function loadCompositePreview(
   root: PIXI.Container,
 ): Promise<CompositePreviewRuntime> {
   await ensureCubismRuntime();
+  const { loadPixiCompositeModel } = await import("composite-model");
   const revokers: Array<() => void> = [];
   const stage = new (await import("pixi.js")).Container();
   stage.position.set(0, 80);

@@ -5,6 +5,8 @@ declare global {
 }
 
 let cubismBootstrap: Promise<void> | null = null;
+let live2dModuleBootstrap: Promise<typeof import("pixi-live2d-display-webgal")> | null =
+  null;
 
 export async function ensureCubismRuntime(): Promise<void> {
   if (cubismBootstrap) {
@@ -17,6 +19,26 @@ export async function ensureCubismRuntime(): Promise<void> {
   })();
 
   return cubismBootstrap;
+}
+
+export async function loadLive2DModule(): Promise<
+  typeof import("pixi-live2d-display-webgal")
+> {
+  if (live2dModuleBootstrap) {
+    return live2dModuleBootstrap;
+  }
+
+  live2dModuleBootstrap = (async () => {
+    await ensureCubismRuntime();
+    const pixi = await import("pixi.js");
+    window.PIXI = pixi;
+
+    const live2d = await import("pixi-live2d-display-webgal");
+    live2d.Live2DModel.registerTicker(pixi.Ticker);
+    return live2d;
+  })();
+
+  return live2dModuleBootstrap;
 }
 
 async function injectScript(src: string): Promise<void> {

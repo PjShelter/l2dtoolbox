@@ -1,6 +1,6 @@
 import type * as PIXI from "pixi.js";
-import { Live2DModel } from "pixi-live2d-display-webgal";
-import { ensureCubismRuntime } from "./cubism";
+import type { Live2DModel } from "pixi-live2d-display-webgal";
+import { loadLive2DModule } from "./cubism";
 import { prepareLive2DModelSource } from "./model-source";
 import type { EditableModelState, PreviewLayerState } from "../../types/app";
 
@@ -21,7 +21,7 @@ export async function loadSingleLive2dModel(
   root: PIXI.Container,
   state?: EditableModelState | null,
 ): Promise<SinglePreviewRuntime> {
-  await ensureCubismRuntime();
+  const { Live2DModel } = await loadLive2DModule();
 
   const prepared = await prepareLive2DModelSource(source, {
     initOpacities: state?.initOpacities,

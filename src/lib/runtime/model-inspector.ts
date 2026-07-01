@@ -1,6 +1,5 @@
-import { Live2DModel } from "pixi-live2d-display-webgal";
 import type { ModelInitParam } from "../../types/app";
-import { ensureCubismRuntime } from "./cubism";
+import { loadLive2DModule } from "./cubism";
 import { prepareLive2DModelSource } from "./model-source";
 
 export type InspectedSingleModel = {
@@ -12,7 +11,7 @@ const PART_RE = /^PARTS_/i;
 const PARAM_RE = /^PARAM_/i;
 
 export async function inspectSingleModel(modelPath: string): Promise<InspectedSingleModel> {
-  await ensureCubismRuntime();
+  const { Live2DModel } = await loadLive2DModule();
   const prepared = await prepareLive2DModelSource(modelPath);
 
   try {
