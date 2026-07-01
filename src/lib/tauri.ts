@@ -4,6 +4,7 @@ import type {
   AppSettings,
   BatchAddPayload,
   BatchAddReport,
+  BestdoriDownloadReport,
   CompositeManifest,
   ConversionReport,
   FileWriteReport,
@@ -20,6 +21,8 @@ import type {
   PresetApplyPayload,
   PresetApplyReport,
   PresetTarget,
+  ResourceDatabase,
+  ResourceEntry,
   ResolvedCompositeManifest,
   SelectorCopyPayload,
   SelectorCopyReport,
@@ -70,6 +73,26 @@ export function loadSettings(): Promise<AppSettings> {
 
 export function saveSettings(settings: AppSettings): Promise<AppSettings> {
   return invoke<AppSettings>("save_settings", { settings });
+}
+
+export function downloadBestdoriModel(
+  modelName: string,
+  targetDir: string,
+  folderName?: string,
+): Promise<BestdoriDownloadReport> {
+  return invoke("download_bestdori_model", { modelName, targetDir, folderName });
+}
+
+export function loadResourceDatabase(): Promise<ResourceDatabase> {
+  return invoke("load_resource_database");
+}
+
+export function upsertResourceEntry(entry: ResourceEntry): Promise<ResourceDatabase> {
+  return invoke("upsert_resource_entry", { entry });
+}
+
+export function removeResourceEntry(id: string): Promise<ResourceDatabase> {
+  return invoke("remove_resource_entry", { id });
 }
 
 export function scanModelDirectory(inputDir: string): Promise<Record<string, unknown>> {

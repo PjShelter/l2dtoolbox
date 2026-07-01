@@ -1,5 +1,7 @@
 export type AppModule =
+  | "resource-database"
   | "model-tools"
+  | "online-library"
   | "part-editor"
   | "jsonl-generator"
   | "jsonl-editor"
@@ -119,6 +121,35 @@ export interface AppSettings {
 export interface FileWriteReport {
   filePath: string;
   writtenBytes: number;
+}
+
+export interface BestdoriDownloadReport {
+  modelName: string;
+  modelPath: string;
+  outputDir: string;
+  fileCount: number;
+  writtenFiles: string[];
+}
+
+export interface ResourceDatabase {
+  entries: ResourceEntry[];
+}
+
+export interface ResourceEntry {
+  id: string;
+  name: string;
+  kind: string;
+  source: string;
+  modelPath?: string;
+  rootDir?: string;
+  sourceModelName?: string;
+  displayName?: string;
+  description?: string;
+  characterId?: string;
+  colorCode?: string;
+  fileCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ModelPartOpacity {

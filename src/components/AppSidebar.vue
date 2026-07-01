@@ -14,6 +14,13 @@ const groups: Array<{
   items: Array<{ id: AppModule; label: string; icon: string }>;
 }> = [
   {
+    label: "数据库",
+    items: [
+      { id: "resource-database", label: "资源库",      icon: "▣" },
+      { id: "online-library",    label: "在线模型库",  icon: "◇" },
+    ],
+  },
+  {
     label: "模型",
     items: [
       { id: "model-tools", label: "模型工具",    icon: "⚙" },

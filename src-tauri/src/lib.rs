@@ -1,5 +1,7 @@
+mod bestdori;
 mod jsonl;
 mod model;
+mod resource_db;
 mod settings;
 mod types;
 
@@ -8,9 +10,37 @@ use types::{
     AppSettings, BatchAddReport, CompositeManifest, ConversionReport, FileWriteReport,
     GeneratedJsonl, ModelCleanupReport, ModelJson, ModelJsonDocument, ModelPartOpacity,
     ModelInitParam, MtnPatchReport, OptimizedCompositeModel, PartsPresetMap, PresetApplyPayload,
-    PresetApplyReport, PresetTarget, ResolvedCompositeManifest, SelectorCopyPayload,
+    PresetApplyReport, PresetTarget, ResourceDatabase, ResourceEntry, ResolvedCompositeManifest, SelectorCopyPayload,
     SelectorCopyReport, JsonlGenerationPayload,
 };
+
+#[tauri::command]
+fn download_bestdori_model(
+    model_name: String,
+    target_dir: String,
+    folder_name: Option<String>,
+) -> Result<bestdori::BestdoriDownloadReport, String> {
+    bestdori::download_bestdori_model(&model_name, &target_dir, folder_name.as_deref())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn load_resource_database(app: AppHandle) -> Result<ResourceDatabase, String> {
+    resource_db::load_resource_database(&app).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn upsert_resource_entry(
+    app: AppHandle,
+    entry: ResourceEntry,
+) -> Result<ResourceDatabase, String> {
+    resource_db::upsert_resource_entry(&app, entry).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn remove_resource_entry(app: AppHandle, id: String) -> Result<ResourceDatabase, String> {
+    resource_db::remove_resource_entry(&app, &id).map_err(|error| error.to_string())
+}
 
 #[tauri::command]
 fn load_settings(app: AppHandle) -> Result<AppSettings, String> {
@@ -158,6 +188,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            download_bestdori_model,
+            load_resource_database,
+            upsert_resource_entry,
+            remove_resource_entry,
             load_settings,
             save_settings,
             scan_model_directory,

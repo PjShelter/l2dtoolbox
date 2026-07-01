@@ -2,6 +2,41 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceDatabase {
+    pub entries: Vec<ResourceEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceEntry {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
+    pub source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root_dir: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_model_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub character_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompositeDiagnostic {

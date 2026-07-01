@@ -2,6 +2,8 @@
 import { onMounted, ref, watch } from "vue";
 import AppSidebar from "./components/AppSidebar.vue";
 import ModelToolsPage from "./pages/ModelToolsPage.vue";
+import OnlineModelLibraryPage from "./pages/OnlineModelLibraryPage.vue";
+import ResourceDatabasePage from "./pages/ResourceDatabasePage.vue";
 import PartEditorPage from "./pages/PartEditorPage.vue";
 import JsonlGeneratorPage from "./pages/JsonlGeneratorPage.vue";
 import JsonlEditorPage from "./pages/JsonlEditorPage.vue";
@@ -15,7 +17,9 @@ import type { AppModule, AppSettings } from "./types/app";
 const activeModule = ref<AppModule>("model-tools");
 const settings = ref<AppSettings | null>(null);
 const validModules = new Set<AppModule>([
+  "resource-database",
   "model-tools",
+  "online-library",
   "part-editor",
   "jsonl-generator",
   "jsonl-editor",
@@ -46,7 +50,9 @@ watch(activeModule, async (value) => {
     <AppSidebar :active-module="activeModule" @select="activeModule = $event" />
 
     <main class="workspace">
-      <ModelToolsPage v-if="activeModule === 'model-tools'" />
+      <ResourceDatabasePage v-if="activeModule === 'resource-database'" />
+      <ModelToolsPage v-else-if="activeModule === 'model-tools'" />
+      <OnlineModelLibraryPage v-else-if="activeModule === 'online-library'" />
       <PartEditorPage v-else-if="activeModule === 'part-editor'" />
       <JsonlGeneratorPage v-else-if="activeModule === 'jsonl-generator'" />
       <JsonlEditorPage v-else-if="activeModule === 'jsonl-editor'" />
