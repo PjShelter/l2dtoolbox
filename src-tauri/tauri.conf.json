@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Live2D Toolbox",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "identifier": "com.codex.l2dtoolbox",
   "build": {
     "beforeDevCommand": "pnpm dev",

@@ -1,6 +1,6 @@
 [package]
 name = "l2dtoolbox"
-version = "0.1.1"
+version = "0.1.2"
 description = "Live2D Toolbox"
 authors = ["Dongshan Randeng"]
 edition = "2021"
